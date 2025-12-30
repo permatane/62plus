@@ -55,7 +55,7 @@ jobs:
       - name: Access Secrets (local.properties)
         run: |
           cd src
-          echo KAZEFURI_API=${{ secrets.KAZEFURI_API }} >> local.properties
+          echo ANIMESAIL_API=${{ secrets.ANIMESAIL_API }} >> local.properties
           
       - name: Build Plugins
         run: |
