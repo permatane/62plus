@@ -46,10 +46,10 @@ jobs:
 
       - name: Access Secrets
         env:
-          ANIMESAIL_API: ${{ secrets.ANIMESAIL_API }}
+          ANIMEKHOR_API: ${{ secrets.ANIMEKHOR_API }}
         run: |
           cd $GITHUB_WORKSPACE/src
-          echo ANIMESAIL_API=$ANIMESAIL_API >> local.properties 
+          echo ANIMEKHOR_API=$ANIMEKHOR_API >> local.properties 
       - name: Build Plugins
         run: |
           cd $GITHUB_WORKSPACE/src
