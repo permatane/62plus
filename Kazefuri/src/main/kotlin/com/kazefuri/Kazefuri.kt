@@ -3,7 +3,7 @@ package com.kazefuri
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Document
-import kotlin.text.RegexOption
+import kotlinx.coroutines.withTimeoutOrNull
 
 class Kazefuri : MainAPI() {
     override var mainUrl = "https://sv3.kazefuri.cloud"
@@ -14,110 +14,135 @@ class Kazefuri : MainAPI() {
     override val hasQuickSearch = true
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get("$mainUrl/").document
-        val homeItems = document.select("a").mapNotNull { it.toSearchResult() }
-            .distinctBy { it.url }
+        val document = withTimeoutOrNull(30000) {
+            app.get(mainUrl, timeout = 30).document
+        } ?: return newHomePageResponse(emptyList())
 
         val homePageLists = mutableListOf<HomePageList>()
-        if (homeItems.isNotEmpty()) {
-            homePageLists.add(HomePageList("Series Tersedia / Populer", homeItems))
+
+        try {
+            val headings = document.select("h2, h3")
+            headings.forEach { heading ->
+                val sectionName = heading.text().trim().takeIf { it.isNotEmpty() } ?: "Unknown Section"
+                val list = heading.nextElementSibling()?.select("a[href]")
+                    ?.mapNotNull { it.toSearchResult() } ?: emptyList()
+                if (list.isNotEmpty()) {
+                    homePageLists.add(HomePageList(sectionName, list))
+                }
+            }
+
+            // Fallback jika tidak ada section heading
+            if (homePageLists.isEmpty()) {
+                val allItems = document.select("a[href^=/][href$=/]")
+                    .mapNotNull { it.toSearchResult() }
+                if (allItems.isNotEmpty()) {
+                    homePageLists.add(HomePageList("Available Anime", allItems))
+                }
+            }
+        } catch (e: Exception) {
+            // Jika parsing gagal, tetap return empty agar tidak crash app
         }
 
         return newHomePageResponse(homePageLists)
     }
 
     private fun org.jsoup.nodes.Element.toSearchResult(): SearchResponse? {
-        val href = this.attr("href").takeIf { it.startsWith("/") || it.startsWith("http") } ?: return null
-        val fullHref = fixUrl(href)
+        return try {
+            val href = this.attr("href").takeIf { it.startsWith("/") && it.endsWith("/") } ?: return null
+            val fullHref = fixUrl(href)
+            val title = this.text().trim().takeIf { it.isNotEmpty() } ?: return null
 
-        if (fullHref.contains("-episode-") || fullHref.contains("/genres/") || fullHref.contains("/page/") || fullHref.contains("/search/")) {
-            return null
-        }
-
-        val title = this.text().trim().takeIf { it.isNotEmpty() } ?: return null
-
-        val posterImg = this.selectFirst("img")
-            ?: this.parent()?.selectFirst("img")
-            ?: this.nextElementSibling()?.selectFirst("img")
-        val posterUrl = posterImg?.attr("src")?.takeIf { it.endsWith(".jpg") || it.endsWith(".png") || it.endsWith(".webp") }
-            ?.let { fixUrl(it) }
-            ?: posterImg?.attr("data-src")?.let { fixUrl(it) }
-
-        return newAnimeSearchResponse(title, fullHref, TvType.Anime) {
-            this.posterUrl = posterUrl
+            newAnimeSearchResponse(title, fullHref, TvType.Anime) {
+                this.posterUrl = null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 
     override suspend fun quickSearch(query: String): List<SearchResponse> {
-        val document = app.get(mainUrl).document
-        return document.select("a")
-            .mapNotNull { it.toSearchResult() }
-            .filter { it.name.contains(query, ignoreCase = true) }
-            .distinctBy { it.url }
+        return search(query)
     }
 
-    override suspend fun search(query: String): List<SearchResponse> = emptyList()
+    override suspend fun search(query: String): List<SearchResponse> {
+        val formattedQuery = query.replace(" ", "-")
+        val url = "$mainUrl/search/$formattedQuery"
+
+        val document = withTimeoutOrNull(20000) {
+            app.get(url, timeout = 20).document
+        }
+
+        return document?.select("ul li a[href*=-episode-]")
+            ?.mapNotNull { it.toSearchResult() }
+            ?: emptyList()
+    }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        val document = withTimeoutOrNull(30000) {
+            app.get(url, timeout = 30).document
+        } ?: return newAnimeLoadResponse("", url, TvType.Anime) {
+            addEpisodes(DubStatus.Subbed, emptyList())
+        }
 
-        val title = document.selectFirst("h1, h2, h3")?.ownText()?.trim()
-            ?: document.selectFirst("title")?.text()?.substringBefore(" - Kazefuri")?.trim()
-            ?: ""
+        val title = try {
+            document.selectFirst("h1")?.text()?.trim() ?: "Unknown Title"
+        } catch (e: Exception) {
+            "Unknown Title"
+        }
 
-        val description = document.select("p").joinToString("\n") { it.text().trim() }
-            .takeIf { it.isNotEmpty() }
-            ?: document.selectFirst("h2:contains(Synopsis), h3:contains(Sinopsis)")?.nextElementSibling()?.text()
-
-        val posterUrl = document.selectFirst("img.cover, img.poster, img.thumbnail, img[src*=/cover/], img[src*=/poster/]")
-            ?.absUrl("src")
-            ?: document.selectFirst("img[src$=.jpg], img[src$=.png], img[src$=.webp]")?.absUrl("src")
-            ?: document.selectFirst("img[data-src]")?.absUrl("data-src")
+        val description = try {
+            document.selectFirst("h2:contains(Synopsis) + p")?.text()?.trim()
+                ?: document.selectFirst("p")?.text()?.trim()
+                ?: ""
+        } catch (e: Exception) {
+            ""
+        }
 
         val episodes = mutableListOf<Episode>()
 
-        document.select("a[href*=-episode-]").forEach { epElement ->
-            val epHref = fixUrl(epElement.attr("href"))
-            val epText = epElement.text().trim()
-
-            val epNum = Regex("-episode-(\\d+)").find(epHref)?.groupValues?.get(1)?.toIntOrNull()
-                ?: Regex("Episode[\\s-]*(\\d+)", RegexOption.IGNORE_CASE).find(epText)?.groupValues?.get(1)?.toIntOrNull()
-                ?: Regex("^(\\d+)", RegexOption.IGNORE_CASE).find(epText)?.groupValues?.get(1)?.toIntOrNull()
-                ?: 0
-
-            val epName = epText.ifEmpty { "Episode $epNum" }
-
-            var seasonNum = 1
-            var current = epElement.previousElementSibling()
-            while (current != null) {
-                if (current.tagName().matches(Regex("h[1-6]"))) {
-                    val heading = current.text()
-                    val seasonMatch = Regex("(Musim|Season|Part)[\\s-]*(\\d+)", RegexOption.IGNORE_CASE).find(heading)
-                    if (seasonMatch != null) {
-                        seasonNum = seasonMatch.groupValues[2].toIntOrNull() ?: 1
-                        break
+        try {
+            val seasonHeadings = document.select("h2:contains(Musim)")
+            if (seasonHeadings.isNotEmpty()) {
+                seasonHeadings.forEachIndexed { index, seasonHeading ->
+                    val seasonNum = Regex("\\d+").find(seasonHeading.text())?.value?.toInt() ?: (index + 1)
+                    val seasonList = seasonHeading.nextElementSibling()?.select("ul li a[href*=-episode-]")
+                    seasonList?.forEach { epElement ->
+                        val epHref = fixUrl(epElement.attr("href"))
+                        val epText = epElement.text().trim()
+                        val epNum = Regex("Episode (\\d+)", RegexOption.IGNORE_CASE)
+                            .find(epText)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        if (epNum > 0) {
+                            episodes.add(newEpisode(epHref) {
+                                this.name = epText.ifEmpty { "Episode $epNum" }
+                                this.season = seasonNum
+                                this.episode = epNum
+                            })
+                        }
                     }
                 }
-                current = current.previousElementSibling()
+            } else {
+                // Single season
+                document.select("ul li a[href*=-episode-]").forEach { epElement ->
+                    val epHref = fixUrl(epElement.attr("href"))
+                    val epText = epElement.text().trim()
+                    val epNum = Regex("Episode (\\d+)", RegexOption.IGNORE_CASE)
+                        .find(epText)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    if (epNum > 0) {
+                        episodes.add(newEpisode(epHref) {
+                            this.name = epText.ifEmpty { "Episode $epNum" }
+                            this.season = 1
+                            this.episode = epNum
+                        })
+                    }
+                }
             }
-
-            if (epNum > 0) {
-                episodes.add(newEpisode(epHref) {
-                    this.name = epName
-                    this.season = seasonNum
-                    this.episode = epNum
-                })
-            }
-        }
-
-        episodes.sortBy { 
-            ((it.season ?: 1) * 10000) + (it.episode ?: 0) 
+        } catch (e: Exception) {
+            // Jika parsing episode gagal, tetap return response dengan episode kosong
         }
 
         return newAnimeLoadResponse(title, url, TvType.Anime) {
-            this.posterUrl = posterUrl
+            this.posterUrl = null
             this.plot = description
-            this.tags = emptyList()
             addEpisodes(DubStatus.Subbed, episodes)
         }
     }
@@ -128,27 +153,38 @@ class Kazefuri : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
+        var hasLinks = false
 
-        document.select("iframe[src], iframe[data-src], video source[src], button[data-src], a[data-url]").forEach {
-            val src = it.attr("src").takeIf { it.isNotEmpty() }
-                ?: it.attr("data-src").takeIf { it.isNotEmpty() }
-                ?: it.attr("data-url").takeIf { it.isNotEmpty() }
-                ?: return@forEach
-            loadExtractor(fixUrl(src), data, subtitleCallback, callback)
+        val document = withTimeoutOrNull(30000) {
+            app.get(data, timeout = 30).document
+        } ?: return false
+
+        try {
+            document.select("h2:contains(P)").forEach { qualityHeading ->
+                val qualityText = qualityHeading.text().trim()
+                val qualityInt = getQualityFromName(qualityText)
+
+                val links = qualityHeading.nextElementSibling()?.select("a[href]")
+                links?.forEach { linkElement ->
+                    val hostUrl = linkElement.attr("href").takeIf { it.isNotEmpty() } ?: return@forEach
+                    val fullUrl = fixUrl(hostUrl)
+
+                    loadExtractor(fullUrl, data, subtitleCallback) { extractorLink ->
+                        hasLinks = true
+                        // Override quality jika extractor tidak set
+                        val finalLink = if (extractorLink.quality == Qualities.Unknown.value) {
+                            extractorLink.copy(quality = qualityInt)
+                        } else {
+                            extractorLink
+                        }
+                        callback(finalLink)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Jika error parsing hoster, tetap return false (tidak crash)
         }
 
-        // FINAL FIX: Gunakan builder lambda dengan parameter eksplisit untuk link
-        document.select("video source[src]").forEach {
-            val src = it.attr("src")
-            val label = it.attr("label").takeIf { it.isNotEmpty() } ?: "720p"
-            val qualityInt = getQualityFromName(label)
-            
-            callback(newExtractorLink(this.name, this.name, src, referrer = "") { link ->
-                link.quality = qualityInt
-            })
-        }
-
-        return true
+        return hasLinks
     }
 }
