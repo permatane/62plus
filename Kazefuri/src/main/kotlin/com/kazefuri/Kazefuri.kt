@@ -3,6 +3,7 @@ package com.kazefuri
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Document
+import kotlin.text.RegexOption
 
 class Kazefuri : MainAPI() {
     override var mainUrl = "https://sv3.kazefuri.cloud"
@@ -137,14 +138,13 @@ class Kazefuri : MainAPI() {
             loadExtractor(fixUrl(src), data, subtitleCallback, callback)
         }
 
-        // FINAL FIX: gunakan builder lambda untuk newExtractorLink
         document.select("video source[src]").forEach {
             val src = it.attr("src")
             val label = it.attr("label").takeIf { it.isNotEmpty() } ?: "720p"
             val qualityInt = getQualityFromName(label)
             
-            callback(newExtractorLink(this.name, this.name, src, "") {
-                this.quality = qualityInt
+            callback(newExtractorLink(this.name, this.name, src, "") { link ->
+                link.quality = qualityInt
             })
         }
 
