@@ -1,9 +1,7 @@
 package com.Kazefuri
 
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 
 class Kazefuri : MainAPI() {
@@ -15,14 +13,14 @@ class Kazefuri : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val items = document.select("article, div.bs").mapNotNull {
+        val items = document.select("article, div.bs, div.item").mapNotNull {
             it.toSearchResult()
         }
         return newHomePageResponse("Update Terbaru", items)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val title = this.selectFirst("h2, .tt")?.text() ?: return null
+        val title = this.selectFirst("h2, .tt, h3")?.text() ?: return null
         val href = this.selectFirst("a")?.attr("href") ?: return null
         val poster = this.selectFirst("img")?.attr("src")
 
@@ -33,7 +31,7 @@ class Kazefuri : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val document = app.get("$mainUrl/?s=$query").document
-        return document.select("article, div.bs").mapNotNull {
+        return document.select("article, div.bs, div.item").mapNotNull {
             it.toSearchResult()
         }
     }
@@ -42,12 +40,12 @@ class Kazefuri : MainAPI() {
         val document = app.get(url).document
         val title = document.selectFirst("h1.entry-title, .entry-title")?.text() ?: ""
         val poster = document.selectFirst("img.wp-post-image, .poster img")?.attr("src")
-        val description = document.selectFirst(".entry-content p, .description")?.text()
+        val description = document.selectFirst(".entry-content p, .description, .sinopsis")?.text()
 
-        // Perbaikan Episode: Menggunakan newEpisode() bukan constructor Episode()
-        val episodes = document.select(".eplister li").mapNotNull {
+        // Perbaikan Episode: Menggunakan newEpisode()
+        val episodes = document.select(".eplister li, .list-episode li").mapNotNull {
             val epHref = it.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-            val epName = it.selectFirst(".epl-num")?.text() ?: "Episode"
+            val epName = it.selectFirst(".epl-num, .epname")?.text() ?: "Episode"
             
             newEpisode(epHref) {
                 this.name = epName
@@ -63,8 +61,8 @@ class Kazefuri : MainAPI() {
             newAnimeLoadResponse(title, url, TvType.Anime) {
                 this.posterUrl = poster
                 this.plot = description
-                // Perbaikan NavType: Menggunakan DubStatus karena NavType sudah di-deprecated/pindah
-                addEpisodes(DubStatus.Subbed, episodes) 
+                // Perbaikan NavType: Menggunakan DubStatus.Subbed
+                addEpisodes(DubStatus.Subbed, episodes)
             }
         }
     }
@@ -77,7 +75,7 @@ class Kazefuri : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
 
-        // Iframe Player
+        // 1. Ekstraksi Iframe Otomatis (Fembed, Gdrive, dll)
         document.select("iframe").forEach { iframe ->
             val src = iframe.attr("src")
             if (src.isNotEmpty()) {
@@ -85,15 +83,16 @@ class Kazefuri : MainAPI() {
             }
         }
 
-        // Perbaikan ExtractorLink: Menggunakan fungsi helper agar tidak deprecated
+        // 2. Ekstraksi Link Direct (Fixing Deprecated dengan newExtractorLink)
         val scriptData = document.select("script").joinToString { it.data() }
+        // Regex untuk mencari file video di dalam script
         val regex = """["']file["']\s*:\s*["']([^"']+)["']""".toRegex()
         
         regex.findAll(scriptData).forEach { match ->
             val videoUrl = match.groupValues[1]
             if (videoUrl.contains("http")) {
                 callback.invoke(
-                    ExtractorLink(
+                    newExtractorLink(
                         source = this.name,
                         name = "Internal Player",
                         url = videoUrl,
