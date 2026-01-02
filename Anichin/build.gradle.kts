@@ -22,6 +22,6 @@ cloudstream {
         "Anime",
     )
     
-    iconUrl = "https://www.google.com/s2/favicons?domain=sv3.kazefuri.cloud&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=anichin.cafe&sz=%size%"
     isCrossPlatform = false
 }
