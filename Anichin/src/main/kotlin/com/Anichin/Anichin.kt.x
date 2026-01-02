@@ -100,4 +100,5 @@ open class Anichin : MainAPI() {
 
         return true
     }
+
 }
