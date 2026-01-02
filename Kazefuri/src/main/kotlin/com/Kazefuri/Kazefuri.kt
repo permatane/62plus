@@ -1,4 +1,4 @@
-package com.kazefuri
+package com.Kazefuri
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
@@ -95,5 +95,6 @@ class Kazefuri : MainAPI() {
         return true
     }
 }
+
 
 
