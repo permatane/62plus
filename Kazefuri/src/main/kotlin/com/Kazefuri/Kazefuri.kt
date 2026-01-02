@@ -84,16 +84,29 @@ class Kazefuri : MainAPI() {
         }
     }
 
-    override suspend fun loadLinks(data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit): Boolean {
-        val document = app.get(data).documentLarge
-        document.select(".mobius option").forEach { server->
-            val base64 = server.attr("value")
-            val decoded=base64Decode(base64)
-            val doc = Jsoup.parse(decoded)
-            val href=doc.select("iframe").attr("src")
-            val url=Http(href)
-            loadExtractor(url,subtitleCallback, callback)
-        }
+   override suspend fun loadLinks(
+            data: String,
+            isCasting: Boolean,
+            subtitleCallback: (SubtitleFile) -> Unit,
+            callback: (ExtractorLink) -> Unit
+    ): Boolean {
+
+        val document = app.get(data).document
+        document.select("div.mobius > select.mirror > option")
+                .mapNotNull {
+                    fixUrl(Jsoup.parse(base64Decode(it.attr("value"))).select("iframe").attr("src"))
+                }
+                .amap {
+                    if (it.startsWith(mainUrl)) {
+                        app.get(it, referer = "$mainUrl/").document.select("iframe").attr("src")
+                    } else {
+                        it
+                    }
+                }
+                .amap { loadExtractor(httpsify(it), data, subtitleCallback, callback) }
+
         return true
     }
 }
+
+
