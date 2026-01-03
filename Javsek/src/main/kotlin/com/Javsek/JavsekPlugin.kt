@@ -1,5 +1,4 @@
-// ! Bu araç @Kraptor123 tarafından | @Cs-GizliKeyif için yazılmıştır.
-package com.kraptor
+package com.Javsek
 
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.extractors.EmturbovidExtractor
@@ -8,7 +7,7 @@ import com.lagradost.cloudstream3.extractors.Voe
 import com.lagradost.cloudstream3.plugins.BasePlugin
 
 @CloudstreamPlugin
-class JavGuruPlugin: BasePlugin() {
+class JavsekPlugin: BasePlugin() {
     override fun load() {
         registerMainAPI(JavGuru())
         registerExtractorAPI(StreamTape())
