@@ -95,7 +95,7 @@ class Javsek : MainAPI() {
                 val recomtitle = it.selectFirst("div.video > a")?.attr("title")?.trim().toString()
                 val recomhref = it.selectFirst("div.video > a")?.attr("href").toString()
                 val recomposterUrl = it.select("div.video > a > div > img").attr("src")
-                val recomposter = "https://javdsek.net$recomposterUrl"
+                val recomposter = "https://javsek.net$recomposterUrl"
                 newAnimeSearchResponse(recomtitle, recomhref, TvType.NSFW) {
                     this.posterUrl = recomposter
                 }
