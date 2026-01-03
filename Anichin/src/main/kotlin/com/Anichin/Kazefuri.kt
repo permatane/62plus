@@ -33,3 +33,4 @@ class Kazefuri : Anichin() {
             hasNext = true
         )
     }
+}
