@@ -5,6 +5,8 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.extractors.Dailymotion
 import com.lagradost.cloudstream3.extractors.EmturbovidExtractor
 import com.lagradost.cloudstream3.extractors.Mp4Upload
+import com.lagradost.cloudstream3.extractors.Okrulink
+import com.lagradost.cloudstream3.extractors.Rumble
 // import android.content.Context
 
 @CloudstreamPlugin
@@ -20,7 +22,6 @@ class AnimenosubProvider: BasePlugin() {
         registerExtractorAPI(Dailymotion())
         registerExtractorAPI(Rumble())
         registerExtractorAPI(Mp4Upload())
-        registerExtractorAPI(PlayerDonghuaworld())
-        registerExtractorAPI(P2pstream())
+        registerExtractorAPI(Okrulink())
     }
 }

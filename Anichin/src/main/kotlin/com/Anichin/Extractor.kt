@@ -14,13 +14,11 @@ import com.lagradost.cloudstream3.utils.INFER_TYPE
 import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.cloudstream3.utils.JsUnpacker
+import com.lagradost.cloudstream3.utils.Qualities
 
 class embedwish : StreamWishExtractor() {
     override var mainUrl = "https://embedwish.com"
-}
-
-class P2pstream : VidStack() {
-    override var mainUrl = "https://animekhor.p2pstream.vip"
 }
 
 class Filelions : VidhideExtractor() {
@@ -35,11 +33,6 @@ class Swhoi : StreamWishExtractor() {
 
 class VidHidePro5: VidHidePro() {
     override val mainUrl = "https://vidhidevip.com"
-    override val requiresReferer = true
-}
-
-class PlayerDonghuaworld: Rumble() {
-    override var mainUrl = "https://player.donghuaworld.in"
     override val requiresReferer = true
 }
 
