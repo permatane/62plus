@@ -19,8 +19,9 @@ class Javsek : MainAPI() {
     override val hasDownloadSupport = true
 
     override val mainPage = mainPageOf(
-        "/genre/jav-sub-indo" to "Indonesia Sub",
-        "/genre/orgasm" to "Orgasme",
+        "$mainUrl/page/" to "Latest Updates",
+        "$mainUrl/category/uncensored/page/" to "Uncensored",
+        "$mainUrl/category/censored/page/" to "Censored"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
