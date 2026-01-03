@@ -144,7 +144,6 @@ class MovieBox : MainAPI() {
         "5404290953194750296" to "Anime",
         "5848753831881965888" to "Horor Indonesia",
         "7132534597631837112" to "Film Animasi",
-        "8049887023940913872" to "All The Time Box Office",
         "1|1" to "All Movies",
         "1|2;sort=Latest" to "All Series",
         "1|1006" to "All Anime",
