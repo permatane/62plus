@@ -118,7 +118,7 @@ class Javsek : MainAPI() {
         }
     }
 
-override fun loadLinks(
+override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
