@@ -1,4 +1,4 @@
-package com.Javsek
+package com.javsek
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
@@ -17,31 +17,21 @@ class Javsek : MainAPI() {
         "/category/indo-sub/" to "Sub Indo"
     )
 
-    override fun getMainPage(
-        page: Int,
-        request: MainPageRequest
-    ): HomePageResponse {
-
-        val url = if (page == 1)
-            mainUrl + request.data
+    override fun getMainPage(page: Int,request: MainPageRequest): HomePageResponse {
+        val url = if (page == 1)mainUrl + request.data
         else
             "${mainUrl}${request.data}page/$page/"
 
-        val doc = app.get(url).document
-
-        val items = doc.select("article").mapNotNull { article ->
-            val a = article.selectFirst("a") ?: return@mapNotNull null
+        val document= app.get(url).document
+        val results = document.select("article").mapNotNull { article ->
+            val link = article.selectFirst("a") ?: return@mapNotNull null
             val title = article.selectFirst("h2")?.text() ?: return@mapNotNull null
-            val poster = article.selectFirst("img")?.attr("src")
+            val posterUrl = article.selectFirst("img")?.attr("src")
 
-            newMovieSearchResponse(
-                title,
-                fixUrl(a.attr("href")),
-                TvType.Movie
-            ) {
-                this.posterUrl = poster
-            }
+            return newMovieSearchResponse(title, href, TvType.NSFW) {
+            this.posterUrl = posterUrl
         }
+    }
 
         return newHomePageResponse(
             request.name,
