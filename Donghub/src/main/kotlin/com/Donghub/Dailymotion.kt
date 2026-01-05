@@ -23,7 +23,7 @@ open class Dailymotion : ExtractorApi() {
     override suspend fun getUrl(
         url: String,
         referer: String?,
-        subtitleCallback: (SubtitleFile) -> Unit,
+        subtitleCallback: (newSubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ) {
         val embedUrl = getEmbedUrl(url) ?: return
