@@ -19,7 +19,7 @@ class Jeniusplay : ExtractorApi() {
     override suspend fun getUrl(
         url: String,
         referer: String?,
-        subtitleCallback: (newSubtitleFile) -> Unit,
+        subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ) {
         val document = app.get(url, referer = referer).document
