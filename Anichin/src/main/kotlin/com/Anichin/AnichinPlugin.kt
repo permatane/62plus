@@ -12,7 +12,6 @@ import com.lagradost.cloudstream3.extractors.Okrulink
 class AnichinPlugin: BasePlugin() {
     override fun load() {
         registerMainAPI(Anichin())
-        registerMainAPI(Auratail())
         registerExtractorAPI(embedwish())
         registerExtractorAPI(Filelions())
         registerExtractorAPI(VidHidePro5())
