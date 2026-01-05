@@ -9,7 +9,7 @@ import com.lagradost.cloudstream3.extractors.Okrulink
 // import android.content.Context
 
 @CloudstreamPlugin
-class AnimenosubProvider: BasePlugin() {
+class AnichinPlugin: Plugin() {
     override fun load() {
         registerMainAPI(Anichin())
         registerMainAPI(Auratail())
