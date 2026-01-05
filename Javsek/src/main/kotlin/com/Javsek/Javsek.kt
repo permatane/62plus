@@ -53,43 +53,42 @@ private val mainHeaders = mapOf(
         )
     }
 
-    // ================= SEARCH =================
+    private fun Element.toSearchResponse(): SearchResponse? {
+        val href = fixUrlNull(this.selectFirst("div.imgg a, a")?.attr("href")).toString()
+        val posterUrl = fixUrlNull(this.selectFirst("img")?.attr("src")).toString()
+        val title = this.selectFirst("img")?.attr("alt")
+            ?.ifBlank { this.selectFirst("a")?.attr("title") }.toString()
 
-    override suspend fun search(query: String,page: Int): SearchResponseList {
-        val url = "$mainUrl/?s=${query.replace(" ", "+")}"
-        val document = app.get(url).document
-
-        return document.select("article").mapNotNull {
-            val a = it.selectFirst("a") ?: return@mapNotNull null
-            val title = it.selectFirst("h2")?.text() ?: return@mapNotNull null
-            val posterUrl = it.selectFirst("img")?.attr("src")
-
-        newMovieSearchResponse(title, href, TvType.NSFW) {
+        return newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = posterUrl
-            this.posterHeaders = mainHeaders                     
-            }
+            this.posterHeaders = mainHeaders
         }
     }
 
-    // ================= DETAIL =================
+   override suspend fun search(query: String, page: Int): SearchResponseList {
+        val document = if (page == 1) {
+            app.get("${mainUrl}/?s=$query", mainHeaders).document
+        } else {
+            app.get("${mainUrl}/page/$page/?s=$query", mainHeaders).document
+        }
+        val aramaCevap = document.select("#main > div").mapNotNull { it.toSearchResult() }
 
-    override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url).document
+        return newSearchResponseList(aramaCevap, hasNext = true)
+    }
 
-        val title = document.selectFirst("h1.entry-title")?.text() ?: "Javsek Video"
-        val poster = document.selectFirst("meta[property=og:image]")?.attr("content")
-        val description = document.selectFirst("meta[property=og:description]")?.attr("content")
+    private fun Element.toSearchResult(): SearchResponse {
+        val title = this.select("a img").attr("alt")
+        val href = fixUrl(this.select("a").attr("href"))
+        val posterUrl = fixUrlNull(this.select("a img").attr("src"))
 
-        return newMovieLoadResponse(title, href, TvType.NSFW) {
+        return newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = posterUrl
-            this.plot = description
+            this.posterHeaders = mainHeaders
         }
     }
 
 
-    // ================= VIDEO =================
-
-   override suspend fun loadLinks(
+    override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
