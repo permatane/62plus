@@ -7,7 +7,4 @@ class Auratail : Anichin() {
     override var mainUrl              = "https://auratail.vip/"
     override var name                 = "Auratail"
     
-    override val mainPage = mainPageOf(
-        "anime/?status=&type=&order=update" to "Update Terbaru",
-    )
 }
