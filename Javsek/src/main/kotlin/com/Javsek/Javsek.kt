@@ -10,34 +10,31 @@ class Javsek : MainAPI() {
     override var name = "JavSek"
     override val hasMainPage = true
     override var lang = "id"
-    // Menggunakan NSFW karena konten situs ini adalah konten dewasa
     override val supportedTypes = setOf(TvType.NSFW)
 
     override val mainPage = mainPageOf(
-        "" to "Terbaru",
+        "page/%d/" to "Terbaru",
         "category/uncensored/page/%d/" to "Uncensored",
         "category/censored/page/%d/" to "Censored",
-        "category/jav-sub-indo/page/%d/" to "Sub Indo",
-        "category/barat/page/%d/" to "Barat",
+        "category/jav-sub-indo/page/%d/" to "Sub Indo"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page <= 1) {
-            "$mainUrl/${request.data.replace("/page/%d/", "")}"
-        } else {
-            "$mainUrl/${request.data.format(page)}"
-        }
-
+        val url = if (page <= 1) "$mainUrl/${request.data.replace("page/%d/", "")}" 
+                  else "$mainUrl/${request.data.format(page)}"
+        
         val document = app.get(url).document
-        // JavSek menggunakan struktur 'article.item-list' untuk list video
-        val home = document.select("article.item-list").mapNotNull { it.toSearchResult() }
+        // Menggunakan selektor article umum agar lebih stabil
+        val home = document.select("article").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, home)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("h2.entry-title a")?.text() ?: return null
-        val href = this.selectFirst("h2.entry-title a")?.attr("href") ?: return null
-        val posterUrl = this.selectFirst("img")?.attr("src")
+        val href = fixUrl(this.selectFirst("a")?.attr("href") ?: "")
+        // Perbaikan: Ambil data-src untuk menangani lazy load gambar
+        val img = this.selectFirst("img")
+        val posterUrl = img?.attr("data-src")?.ifBlank { img.attr("src") }
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = posterUrl
@@ -46,23 +43,17 @@ class Javsek : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val document = app.get("$mainUrl/?s=$query").document
-        return document.select("article.item-list").mapNotNull { it.toSearchResult() }
+        return document.select("article").mapNotNull { it.toSearchResult() }
     }
 
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
-
         val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
         val poster = document.selectFirst("div.entry-content img")?.attr("src")
-        val description = document.selectFirst("div.entry-content p")?.text()
         
-        // Mengambil genre/tag dari postingan
-        val tags = document.select("span.tags-links a").eachText()
-
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
-            this.plot = description
-            this.tags = tags
+            this.plot = document.selectFirst("div.entry-content p")?.text()
         }
     }
 
@@ -73,21 +64,11 @@ class Javsek : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-        
-        // Mencari semua iframe di dalam konten (biasanya tempat player Doodstream/Vidguard)
-        document.select("div.entry-content iframe").forEach { iframe ->
-            val src = iframe.attr("src")
-            if (src.isNotEmpty()) {
-                loadExtractor(src, data, subtitleCallback, callback)
-            }
+        // Mencari semua iframe player
+        document.select("iframe").forEach { 
+            val src = it.attr("src")
+            if (src.isNotEmpty()) loadExtractor(src, data, subtitleCallback, callback)
         }
-
-        // Mencari link download atau tombol stream yang menggunakan provider populer
-        document.select("a[href*='dood'], a[href*='filelions'], a[href*='streamwish'], a[href*='vidguard']")
-            .forEach { link ->
-                loadExtractor(link.attr("href"), data, subtitleCallback, callback)
-            }
-
         return true
     }
 }
