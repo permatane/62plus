@@ -11,12 +11,15 @@ class Javsek : MainAPI() {
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes = setOf(TvType.NSFW)
-
+https://javsek.net/category/amateur/page/2/
     override val mainPage = mainPageOf(
         "page/%d/" to "Terbaru",
-        "category/uncensored/page/%d/" to "Uncensored",
-        "category/censored/page/%d/" to "Censored",
-        "category/jav-sub-indo/page/%d/" to "Sub Indo"
+        "category/indo-sub/page/%d/" to "Sub Indo"
+        "category/english-sub/page/%d/" to "Sub English"
+        "category/jav-reducing-mosaic-decensored-streaming-and-download/page/%d/" to "Reducing Mosaic",
+        "category/amateur/page/%d/" to "Amateur",
+        "category/chinese-porn-streaming/page/%d/" to "China",
+        
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
