@@ -1,4 +1,4 @@
-version = 14
+version = 3
 
 cloudstream {
     description = "JavSek"
