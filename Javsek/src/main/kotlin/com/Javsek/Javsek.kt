@@ -27,7 +27,6 @@ class Javsek : MainAPI() {
                   else "$mainUrl/${request.data.format(page)}"
         
         val document = app.get(url).document
-        // Menggunakan selektor article umum agar lebih stabil
         val home = document.select("article").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, home)
     }
@@ -35,7 +34,6 @@ class Javsek : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("h2.entry-title a")?.text() ?: return null
         val href = fixUrl(this.selectFirst("a")?.attr("href") ?: "")
-        // Perbaikan: Ambil data-src untuk menangani lazy load gambar
         val img = this.selectFirst("img")
         val posterUrl = img?.attr("data-src")?.ifBlank { img.attr("src") }
 
@@ -67,7 +65,6 @@ class Javsek : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-        // Mencari semua iframe player
         document.select("iframe").forEach { 
             val src = it.attr("src")
             if (src.isNotEmpty()) loadExtractor(src, data, subtitleCallback, callback)
