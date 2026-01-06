@@ -23,16 +23,11 @@ class Javsek : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page <= 1) {
-            "$mainUrl/${request.data.replace("page/%d/", "")}"
-        } else {
-            "$mainUrl/${request.data.format(page)}"
-        }
-
-        val document = app.get(url).document
-        // Menggunakan selektor 'article' yang lebih umum sesuai struktur index.html
-        val home = document.select("article").mapNotNull { it.toSearchResult() }
+        val url = if (page <= 1) "$mainUrl/${request.data.replace("page/%d/", "")}" 
+                  else "$mainUrl/${request.data.format(page)}"
         
+        val document = app.get(url).document
+        val home = document.select("article").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, home)
     }
 
@@ -41,7 +36,7 @@ class Javsek : MainAPI() {
         val title = titleElement.text().trim()
         val href = fixUrl(titleElement.attr("href"))
         
-        // Perbaikan Poster: Menggunakan getImageAttr untuk menangani Lazy Load
+        // Perbaikan: Mengambil poster dari data-src atau srcset sesuai struktur HTML
         val posterUrl = this.selectFirst("img")?.getImageAttr()
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
@@ -49,27 +44,18 @@ class Javsek : MainAPI() {
         }
     }
 
-    override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/?s=$query"
-        val document = app.get(url).document
-        return document.select("article").mapNotNull { it.toSearchResult() }
-    }
-
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
-        val content = document.selectFirst("div.entry-content")
-
         val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
-        // Ambil gambar utama dari dalam konten post
-        val poster = content?.selectFirst("img")?.getImageAttr()
-        val plot = content?.select("p")?.firstOrNull { it.text().isNotBlank() }?.text()
         
-        val tags = document.select("span.tags-links a").eachText()
+        // Mengambil gambar dari elemen utama konten
+        val poster = document.selectFirst("div.entry-content img")?.getImageAttr()
+        val plot = document.selectFirst("div.entry-content p")?.text()
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
             this.plot = plot
-            this.tags = tags
+            this.tags = document.select("span.tags-links a").eachText()
         }
     }
 
@@ -81,35 +67,31 @@ class Javsek : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // 1. Ekstraksi dari semua iframe (Embed Player)
-        document.select("iframe").forEach { iframe ->
-            val src = iframe.attr("src")
+        // 1. Mencari link video di dalam iframe (Player)
+        document.select("iframe").forEach { 
+            val src = it.attr("src")
             if (src.isNotEmpty() && !src.contains("about:blank")) {
                 loadExtractor(fixUrl(src), data, subtitleCallback, callback)
             }
         }
 
-        // 2. Ekstraksi dari link teks/tombol (Alternative Link)
-        // Mencari link yang mengandung provider video populer
-        val videoProviders = listOf("dood", "streamwish", "filelions", "vidguard", "voe", "mixdrop")
-        document.select("div.entry-content a").forEach { link ->
-            val href = link.attr("href")
-            if (videoProviders.any { href.contains(it) }) {
+        // 2. Mencari link video dari tombol atau teks link (Doodstream, Vidguard, dll)
+        document.select("div.entry-content a").forEach { 
+            val href = it.attr("href")
+            if (href.contains("dood") || href.contains("stream") || href.contains("earnvids") || href.contains("file") || href.contains("vidguard")) {
                 loadExtractor(href, data, subtitleCallback, callback)
             }
         }
-
         return true
     }
 
-    // Fungsi utilitas untuk menangani Lazy Loading Gambar (diambil dari pola DutaMovie.kt)
+    // Fungsi utilitas untuk menangani Lazy Load Gambar
     private fun Element.getImageAttr(): String? {
-        val url = when {
+        return when {
             this.hasAttr("data-src") -> this.attr("abs:data-src")
             this.hasAttr("data-lazy-src") -> this.attr("abs:data-lazy-src")
             this.hasAttr("srcset") -> this.attr("abs:srcset").substringBefore(" ")
             else -> this.attr("abs:src")
         }
-        return url?.ifBlank { null }
     }
 }
