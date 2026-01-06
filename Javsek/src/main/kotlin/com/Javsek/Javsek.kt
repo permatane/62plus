@@ -34,27 +34,25 @@ class Javsek : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("h2.entry-title a")?.text() ?: return null
         val href = fixUrl(this.selectFirst("a")?.attr("href") ?: "")
-        val img = this.selectFirst("img")
-        val posterUrl = img?.attr("data-src")?.ifBlank { img.attr("src") }
+        val posterUrl = this.selectFirst("img")?.getImageAttr()
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = posterUrl
         }
     }
 
-    override suspend fun search(query: String): List<SearchResponse> {
-        val document = app.get("$mainUrl/?s=$query").document
-        return document.select("article").mapNotNull { it.toSearchResult() }
-    }
-
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
         val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
-        val poster = document.selectFirst("div.entry-content img")?.attr("src")
         
+        // Perbaikan selektor poster di halaman detail
+        val poster = document.selectFirst("div.entry-content img")?.getImageAttr()
+        val plot = document.selectFirst("div.entry-content p")?.text()
+
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
-            this.plot = document.selectFirst("div.entry-content p")?.text()
+            this.plot = plot
+            this.tags = document.select("span.tags-links a").eachText()
         }
     }
 
@@ -64,37 +62,32 @@ class Javsek : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document= app.get(data).document
-        val token= document.selectFirst("#token_full")?.attr("data-csrf-token") ?:""
-        val script = document.selectFirst("script:containsData(vcpov)")?.data()
-        val postid = script?.let { Regex("vcpov\\s+=\\s+`(.*?)`").find(it)?.groupValues?.get(1) } ?: ""
-        val form= mapOf("video_id" to postid,"pid_c" to "","token" to token)
-        val m3u8= app.post("$mainUrl/ajax/get_cdn", data = form).parsedSafe<Response>()?.playlists
-        if (m3u8!=null)
-        {
-            callback.invoke(
-                newExtractorLink(
-                    source = name,
-                    name = name,
-                    url = m3u8,
-                    INFER_TYPE
-                ) {
-                    this.referer = "$mainUrl/"
-                    this.quality = Qualities.Unknown.value
-                }
+        val document = app.get(data).document
+        
+        // 1. Ekstrak dari iframe (Player utama)
+        document.select("div.entry-content iframe").forEach { 
+            val src = it.attr("src")
+            if (src.isNotEmpty()) loadExtractor(src, data, subtitleCallback, callback)
+        }
 
-            )
+        // 2. Ekstrak dari link teks/tombol (Alternative)
+        document.select("div.entry-content a").forEach { 
+            val href = it.attr("href")
+            // Menambah filter provider yang sering digunakan JavSek
+            if (href.contains("dood") || href.contains("streamwish") || href.contains("filelions") || href.contains("vidguard")) {
+                loadExtractor(href, data, subtitleCallback, callback)
+            }
         }
         return true
     }
 
 
-    data class Response(
-        @JsonProperty("playlists_active")
-        val playlistsActive: Long,
-        val playlists: String,
-        @JsonProperty("playlist_source")
-        val playlistSource: String,
-    )
-
+    private fun Element.getImageAttr(): String {
+        return when {
+            this.hasAttr("data-src") -> this.attr("abs:data-src")
+            this.hasAttr("data-lazy-src") -> this.attr("abs:data-lazy-src")
+            this.hasAttr("srcset") -> this.attr("abs:srcset").substringBefore(" ")
+            else -> this.attr("abs:src")
+        }
+    }
 }
