@@ -64,11 +64,37 @@ class Javsek : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
-        document.select("iframe").forEach { 
-            val src = it.attr("src")
-            if (src.isNotEmpty()) loadExtractor(src, data, subtitleCallback, callback)
+        val document= app.get(data).document
+        val token= document.selectFirst("#token_full")?.attr("data-csrf-token") ?:""
+        val script = document.selectFirst("script:containsData(vcpov)")?.data()
+        val postid = script?.let { Regex("vcpov\\s+=\\s+`(.*?)`").find(it)?.groupValues?.get(1) } ?: ""
+        val form= mapOf("video_id" to postid,"pid_c" to "","token" to token)
+        val m3u8= app.post("$mainUrl/ajax/get_cdn", data = form).parsedSafe<Response>()?.playlists
+        if (m3u8!=null)
+        {
+            callback.invoke(
+                newExtractorLink(
+                    source = name,
+                    name = name,
+                    url = m3u8,
+                    INFER_TYPE
+                ) {
+                    this.referer = "$mainUrl/"
+                    this.quality = Qualities.Unknown.value
+                }
+
+            )
         }
         return true
     }
+
+
+    data class Response(
+        @JsonProperty("playlists_active")
+        val playlistsActive: Long,
+        val playlists: String,
+        @JsonProperty("playlist_source")
+        val playlistSource: String,
+    )
+
 }
