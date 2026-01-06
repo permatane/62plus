@@ -1,7 +1,7 @@
-version = 15
+version = 14
 
 cloudstream {
-    description = "JavSek"
+    description = "Javsek"
     language = "id"
     authors = listOf("Matanya")
 
@@ -14,9 +14,8 @@ cloudstream {
      * */
     status = 1 // will be 3 if unspecified
     tvTypes = listOf(
-        "NFSW",
-        
+        "NSFW",
     )
 
-    iconUrl = "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://javsek.net&size=%size%"
+    iconUrl = "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://justilien.com&size=%size%"
 }
