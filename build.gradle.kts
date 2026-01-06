@@ -35,8 +35,8 @@ subprojects {
     apply(plugin = "com.lagradost.cloudstream3.gradle")
 
     cloudstream {
-        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "https://github.com/permatane/Plus62")
-        authors = listOf("Matane")
+        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "https://github.com/permatane/62plus")
+        authors = listOf("Matanya")
     }
 
     android {
@@ -98,3 +98,4 @@ task<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 
 }
+
