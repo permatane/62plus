@@ -1,4 +1,4 @@
-version = 14
+version = 3
 
 cloudstream {
     description = "Javsek"
@@ -12,10 +12,7 @@ cloudstream {
      * 2: Slow
      * 3: Beta only
      * */
-    status = 1 // will be 3 if unspecified
-    tvTypes = listOf(
-        "NSFW",
-    )
+    status = 3 // will be 3 if unspecified
+    tvTypes = listOf("NSFW")
 
-    iconUrl = "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://justilien.com&size=%size%"
-}
+    iconUrl = "https://www.google.com/s2/favicons?domain=https://javsek.net&sz=%size%"
