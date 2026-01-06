@@ -11,7 +11,7 @@ class Javsek : MainAPI() {
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes = setOf(TvType.NSFW)
-https://javsek.net/category/amateur/page/2/
+
     override val mainPage = mainPageOf(
         "page/%d/" to "Terbaru",
         "category/indo-sub/page/%d/" to "Sub Indo",
