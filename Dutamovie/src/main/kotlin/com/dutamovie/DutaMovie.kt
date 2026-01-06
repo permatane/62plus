@@ -52,20 +52,6 @@ open class DutaMovie : MainAPI() {
         val ratingText = this.selectFirst("div.gmr-rating-item")?.ownText()?.trim()
         val posterUrl = fixUrlNull(this.selectFirst("a > img")?.getImageAttr()).fixImageQuality()
         
-                return if (quality.isEmpty()) {
-            val episode =
-                    Regex("Episode\\s?([0-9]+)")
-                            .find(title)
-                            ?.groupValues
-                            ?.getOrNull(1)
-                            ?.toIntOrNull()
-                            ?: this.select("div.gmr-numbeps > span").text().toIntOrNull()
-            newAnimeSearchResponse(title, href, TvType.NSFW) {
-                this.posterUrl = posterUrl
-                addSub(episode)
-                this.score = Score.from10(ratingText?.toDoubleOrNull())
-            }
-        } else {
             newMovieSearchResponse(title, href, TvType.Movie) {
                 this.posterUrl = posterUrl
                 addQuality(quality)
@@ -142,21 +128,11 @@ open class DutaMovie : MainAPI() {
 
     val tvType = if (url.contains("/tv/")) TvType.TvSeries else TvType.Movie
     val description = document.selectFirst("div[itemprop=description] > p")?.text()?.trim()
-    val trailer = document.selectFirst("ul.gmr-player-nav li a.gmr-trailer-popup")?.attr("href")
-    val rating =
-        document.selectFirst("div.gmr-meta-rating > span[itemprop=ratingValue]")
-            ?.text()?.trim()
-
     val actors =
         document.select("div.gmr-moviedata").last()
             ?.select("span[itemprop=actors]")?.map {
                 it.select("a").text()
             }
-
-    val duration = document.selectFirst("div.gmr-moviedata span[property=duration]")
-        ?.text()
-        ?.replace(Regex("\\D"), "")
-        ?.toIntOrNull()
 
     val recommendations = document
     .select("article.item.col-md-20")
@@ -175,72 +151,9 @@ open class DutaMovie : MainAPI() {
             this.tags = tags
             addScore(rating)
             addActors(actors)
-            this.recommendations = recommendations
-            this.duration = duration ?: 0
-            addTrailer(trailer)
+
         }
     }
-
-
-    // =========================
-    //  TV SERIES MODE
-    // =========================
-
-    // Tombol “View All Episodes” → URL halaman series
-    val seriesUrl =
-        document.selectFirst("a.button.button-shadow.active")?.attr("href")
-            ?: url.substringBefore("/eps/")
-
-    val seriesDoc = app.get(seriesUrl, headers = desktopHeaders).document
-
-    val episodeElements =
-        seriesDoc.select("div.gmr-listseries a.button.button-shadow")
-
-    // Nomor episode manual (agar tidak lompat)
-    var episodeCounter = 1
-
-    val episodes = episodeElements.mapNotNull { eps ->
-        val href = fixUrl(eps.attr("href")).trim()
-        val name = eps.text().trim()
-
-        // Skip tombol "View All Episodes"
-        if (name.contains("View All Episodes", ignoreCase = true)) return@mapNotNull null
-
-        // Skip jika href sama dengan halaman series
-        if (href == seriesUrl) return@mapNotNull null
-
-        // Skip elemen non-episode
-        if (!name.contains("Eps", ignoreCase = true)) return@mapNotNull null
-
-        // Ambil season (default 1)
-        val regex = Regex("""S(\d+)\s*Eps""", RegexOption.IGNORE_CASE)
-        val match = regex.find(name)
-        val season = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
-
-        // Nomor episode final
-        val epNum = episodeCounter++
-
-        newEpisode(href) {
-            this.name = name
-            this.season = season
-            this.episode = epNum
-        }
-    }
-
-    // Return response TV Series
-    return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
-        this.posterUrl = poster
-        this.year = year
-        this.plot = description
-        this.tags = tags
-        addScore(rating)
-        addActors(actors)
-        this.recommendations = recommendations
-        this.duration = duration ?: 0
-        addTrailer(trailer)
-    }
-}
-
 
 
     override suspend fun loadLinks(
