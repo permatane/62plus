@@ -28,7 +28,11 @@ class Javsek : MainAPI() {
 
     override val mainPage = mainPageOf(
         "" to "Latest",
-        "category/indo-sub" to "Subtitle Indonesia"
+        "category/indo-sub" to "Subtitle Indonesia",
+        "category/english-sub" to " Subtitle English",
+        "category/jav-reducing-mosaic-decensored-streaming-and-download" to "Reducing Mosaic",
+        "category/amateur" to "Amateur",
+        "category/chinese-porn-streaming" to "China"  , 
     )
 
     /* =========================
@@ -164,62 +168,72 @@ class Javsek : MainAPI() {
        LOAD LINKS (MULTI SERVER)
        ========================= */
   override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-val document = app.get(data).document
-        
-        // 1. Ambil semua opsi dari Dropdown Player (jika ada)
-        // JavSek biasanya menggunakan <select id="select-player"> atau list <a>
-        val playerOptions = document.select("select#select-player option, .muvipro-player-tabs li a, .player-option")
-        
-        if (playerOptions.isNotEmpty()) {
-            playerOptions.forEach { option ->
-                // Jika berupa dropdown <option>, ambil value-nya. Jika <a>, ambil href.
-                val playerUrl = option.attr("value").ifBlank { option.attr("href") }
-                if (playerUrl.isNotBlank() && playerUrl.startsWith("http")) {
-                    fetchAndExtract(playerUrl, data, subtitleCallback, callback)
-                }
-            }
-        }
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        // 2. Scan Iframe yang ada di halaman utama (default player)
-        document.select("iframe").forEach { iframe ->
-            val src = iframe.attr("src")
-            if (src.isNotEmpty() && !src.contains("about:blank")) {
-                loadExtractor(fixUrl(src), data, subtitleCallback, callback)
-            }
-        }
+    val playerPages = data.split("||").distinct()
+    var found = false
 
-        // 3. Scan link download/external di bawah konten
-        document.select(".entry-content a[href*='earnvid'], .entry-content a[href*='dood'], .entry-content a[href*='vidguard']").forEach { link ->
-            loadExtractor(fixUrl(link.attr("href")), data, subtitleCallback, callback)
-        }
-
-        return true
-    }
-
-    private suspend fun fetchAndExtract(url: String, referer: String, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit) {
+    playerPages.forEach { playerUrl ->
         try {
-            val doc = app.get(url, referer = referer).document
-            doc.select("iframe").forEach { iframe ->
-                val src = fixUrl(iframe.attr("src"))
-                // Paksa loadExtractor mengenali earnvid sebagai vidguard jika perlu
-                loadExtractor(src, url, subtitleCallback, callback)
-            }
-        } catch (e: Exception) {
-            // Log error jika diperlukan
+            val doc = app.get(
+                playerUrl,
+                headers = mapOf(
+                    "User-Agent" to BROWSER_UA,
+                    "Referer" to mainUrl
+                )
+            ).text
+
+            // =========================
+            // 1️⃣ Cari HLS langsung
+            // =========================
+            Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
+                .findAll(doc)
+                .map { it.value }
+                .distinct()
+                .forEach { hls ->
+                    found = true
+                    callback(
+                        ExtractorLink(
+                            source = name,
+                            name = "HLS",
+                            url = hls,
+                            referer = playerUrl,
+                            quality = Qualities.Unknown.value,
+                            type = ExtractorLinkType.M3U8
+                        )
+                    )
+                }
+
+            // =========================
+            // 2️⃣ JWPlayer setup fallback
+            // =========================
+            Regex("""file\s*:\s*["'](https?:\/\/[^"']+)""")
+                .findAll(doc)
+                .map { it.groupValues[1] }
+                .filter { it.contains("m3u8") }
+                .distinct()
+                .forEach { hls ->
+                    found = true
+                    callback(
+                        ExtractorLink(
+                            source = name,
+                            name = "JWPlayer",
+                            url = hls,
+                            referer = playerUrl,
+                            quality = Qualities.Unknown.value,
+                            type = ExtractorLinkType.M3U8
+                        )
+                    )
+                }
+
+        } catch (_: Exception) {
         }
     }
 
-    private fun Element.getImageAttr(): String? {
-        return when {
-            this.hasAttr("data-src") -> this.attr("abs:data-src")
-            this.hasAttr("data-lazy-src") -> this.attr("abs:data-lazy-src")
-            this.hasAttr("srcset") -> this.attr("abs:srcset").substringBefore(" ")
-            else -> this.attr("abs:src")
-        }
-    }
+    return found
+ }
 }
