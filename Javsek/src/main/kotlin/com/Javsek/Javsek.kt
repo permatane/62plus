@@ -1,12 +1,8 @@
-package com.Javsek
+package com.javsek
 
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.httpsify
-import com.lagradost.cloudstream3.utils.loadExtractor
-import java.net.URI
 
 class Javsek : MainAPI() {
 
@@ -17,7 +13,7 @@ class Javsek : MainAPI() {
     override val hasQuickSearch = false
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.NSFW)
-
+    override val vpnStatus = VPNStatus.MightBeNeeded
 
     /* =========================
        USER AGENT (MANUAL)
@@ -28,11 +24,7 @@ class Javsek : MainAPI() {
 
     override val mainPage = mainPageOf(
         "" to "Latest",
-        "category/indo-sub" to "Subtitle Indonesia",
-        "category/english-sub" to " Subtitle English",
-        "category/jav-reducing-mosaic-decensored-streaming-and-download" to "Reducing Mosaic",
-        "category/amateur" to "Amateur",
-        "category/chinese-porn-streaming" to "China"  , 
+        "category/sub-indo" to "Sub Indo"
     )
 
     /* =========================
@@ -43,8 +35,7 @@ class Javsek : MainAPI() {
             url,
             headers = mapOf(
                 "User-Agent" to BROWSER_UA,
-                "Referer" to mainUrl,
-                "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                "Referer" to mainUrl
             )
         ).document
 
@@ -56,22 +47,21 @@ class Javsek : MainAPI() {
         request: MainPageRequest
     ): HomePageResponse {
 
-        val url = if (page == 1) {
+        val url = if (page == 1)
             "$mainUrl/${request.data}"
-        } else {
+        else
             "$mainUrl/${request.data}/page/$page"
-        }
 
         val document = getDocument(url)
 
         val items = document
-            .select("article.post, article.type-post, div.post")
+            .select("article.post")
             .mapNotNull { it.toSearchResult() }
 
         return newHomePageResponse(
             HomePageList(
-                name = request.name,
-                list = items,
+                request.name,
+                items,
                 isHorizontalImages = false
             ),
             hasNext = items.isNotEmpty()
@@ -79,17 +69,14 @@ class Javsek : MainAPI() {
     }
 
     /* =========================
-       SEARCH RESULT PARSER
+       SEARCH RESULT
        ========================= */
     private fun Element.toSearchResult(): SearchResponse? {
-        val titleEl = selectFirst("h2.entry-title a, h3.entry-title a") ?: return null
+        val titleEl = selectFirst("h2.entry-title a") ?: return null
         val img = selectFirst("img")
 
-        val poster = img?.let {
-            it.attr("data-src")
-                .ifBlank { it.attr("data-lazy-src") }
-                .ifBlank { it.attr("src") }
-        }
+        val poster = img?.attr("data-src")
+            ?.ifBlank { img.attr("src") }
 
         return newMovieSearchResponse(
             titleEl.text().trim(),
@@ -105,135 +92,95 @@ class Javsek : MainAPI() {
        ========================= */
     override suspend fun search(query: String): List<SearchResponse> {
         val document = getDocument("$mainUrl/?s=$query")
-
         return document
-            .select("article.post, article.type-post, div.post")
+            .select("article.post")
             .mapNotNull { it.toSearchResult() }
     }
 
     /* =========================
-       LOAD DETAIL PAGE
+       LOAD DETAIL
        ========================= */
     override suspend fun load(url: String): LoadResponse {
         val document = getDocument(url)
 
         val title = document.selectFirst("meta[property=og:title]")
             ?.attr("content")
-            ?.trim()
             ?: "Javsek Video"
 
         val poster = document.selectFirst("meta[property=og:image]")
             ?.attr("content")
 
-        val description = document.selectFirst("meta[property=og:description]")
+        val desc = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
 
-        val serverLinks = mutableSetOf<String>()
-
-        // iframe servers
-        document.select("iframe").forEach {
-            val src = it.attr("src")
-            if (src.startsWith("http")) {
-                serverLinks.add(fixUrl(src))
-            }
-        }
-
-        // anchor servers
-        document.select("a").forEach {
-            val href = it.attr("href")
-            if (
-                href.contains("player", true) ||
-                href.contains("embed", true) ||
-                href.contains("server", true)
-            ) {
-                if (href.startsWith("http")) {
-                    serverLinks.add(fixUrl(href))
-                }
-            }
-        }
+        /* =========================
+           AMBIL PLAYER PAGE (?player=x)
+           ========================= */
+        val playerPages = document
+            .select("a[href*=?player=]")
+            .map { fixUrl(it.attr("href")) }
+            .distinct()
 
         return newMovieLoadResponse(
             name = title,
             url = url,
             type = TvType.NSFW,
-            data = serverLinks.joinToString("||")
+            data = playerPages.joinToString("||")
         ) {
-            this.posterUrl = poster
-            this.plot = description
+            posterUrl = poster
+            plot = desc
             this.tags = document.select("span.tags-links a").eachText()
         }
     }
 
     /* =========================
-       LOAD LINKS (MULTI SERVER)
+       LOAD LINKS (HLS ONLY)
        ========================= */
-  override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
+    override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
 
-    val playerPages = data.split("||").distinct()
-    var found = false
+        val playerPages = data.split("||").distinct()
+        var found = false
 
-    playerPages.forEach { playerUrl ->
-        try {
-            val doc = app.get(
-                playerUrl,
-                headers = mapOf(
-                    "User-Agent" to BROWSER_UA,
-                    "Referer" to mainUrl
-                )
-            ).text
-
-            // =========================
-            // 1️⃣ Cari HLS langsung
-            // =========================
-            Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
-                .findAll(doc)
-                .map { it.value }
-                .distinct()
-                .forEach { hls ->
-                    found = true
-                    callback(
-                        ExtractorLink(
-                            source = name,
-                            name = "HLS",
-                            url = hls,
-                            referer = playerUrl,
-                            quality = Qualities.Unknown.value,
-                            type = ExtractorLinkType.M3U8
-                        )
+        playerPages.forEach { playerUrl ->
+            try {
+                val html = app.get(
+                    playerUrl,
+                    headers = mapOf(
+                        "User-Agent" to BROWSER_UA,
+                        "Referer" to mainUrl
                     )
-                }
+                ).text
 
-            // =========================
-            // 2️⃣ JWPlayer setup fallback
-            // =========================
-            Regex("""file\s*:\s*["'](https?:\/\/[^"']+)""")
-                .findAll(doc)
-                .map { it.groupValues[1] }
-                .filter { it.contains("m3u8") }
-                .distinct()
-                .forEach { hls ->
-                    found = true
-                    callback(
-                        ExtractorLink(
-                            source = name,
-                            name = "JWPlayer",
-                            url = hls,
-                            referer = playerUrl,
-                            quality = Qualities.Unknown.value,
-                            type = ExtractorLinkType.M3U8
+                /* =========================
+                   CARI HLS ASLI (Server7)
+                   ========================= */
+                Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
+                    .findAll(html)
+                    .map { it.value }
+                    .distinct()
+                    .forEach { hls ->
+                        found = true
+                        callback(
+                            ExtractorLink(
+                                source = name,
+                                name = "HLS",
+                                url = hls,
+                                referer = playerUrl,
+                                quality = Qualities.Unknown.value,
+                                type = ExtractorLinkType.M3U8
+                            )
                         )
-                    )
-                }
+                    }
 
-        } catch (_: Exception) {
+            } catch (_: Exception) {
+            }
         }
-    }
 
-    return found
- }
+        return found
+    }
 }
