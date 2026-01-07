@@ -3,6 +3,10 @@ package com.Javsek
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.httpsify
+import com.lagradost.cloudstream3.utils.loadExtractor
+import java.net.URI
 
 class Javsek : MainAPI() {
 
@@ -179,12 +183,12 @@ class Javsek : MainAPI() {
                 ?.let { httpsify(it) }
                 ?: return@amap
 
-            loadExtractor(iframe, "$directUrl/", subtitleCallback, callback)
+            loadExtractor(iframe, "$mainUrl/", subtitleCallback, callback)
         }
     } else {
         document.select("div.tab-content-ajax").amap { ele ->
             val server = app.post(
-                "$directUrl/wp-admin/admin-ajax.php",
+                "$mainUrl/wp-admin/admin-ajax.php",
                 data = mapOf(
                     "action" to "muvipro_player_content",
                     "tab" to ele.attr("id"),
@@ -195,7 +199,7 @@ class Javsek : MainAPI() {
                 .attr("src")
                 .let { httpsify(it) }
 
-            loadExtractor(server, "$directUrl/", subtitleCallback, callback)
+            loadExtractor(server, "$mainUrl/", subtitleCallback, callback)
         }
     }
 
