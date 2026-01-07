@@ -34,9 +34,7 @@ class Javsek : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
         val titleElement = this.selectFirst("h2.entry-title a") ?: return null
         val title = titleElement.text().trim()
-        val href = fixUrl(titleElement.attr("href"))
-        
-        // Perbaikan: Mengambil poster dari data-src atau srcset sesuai struktur HTML
+        val href = fixUrl(titleElement.attr("href"))      
         val posterUrl = this.selectFirst("image")?.getImageAttr()
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
@@ -49,7 +47,7 @@ class Javsek : MainAPI() {
         val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
         
         // Mengambil gambar dari elemen utama konten
-        val poster = document.selectFirst("div.entry-content image")?.getImageAttr()
+        val poster = document.selectFirst("div.entry-content img")?.getImageAttr()
         val plot = document.selectFirst("div.entry-content p")?.text()
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
