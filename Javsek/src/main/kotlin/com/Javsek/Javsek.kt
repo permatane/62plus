@@ -1,26 +1,43 @@
 package com.Javsek
 
+import android.content.Context
+import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import org.jsoup.nodes.Element
+import com.lagradost.cloudstream3.utils.USER_AGENT
 
 class Javsek : MainAPI() {
+
     override var mainUrl = "https://javsek.net"
-    override var name = "JavSek"
+    override var name = "Javsek"
     override val hasMainPage = true
     override var lang = "id"
+    override val hasQuickSearch = false
+    override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.NSFW)
+    override val vpnStatus = VPNStatus.MightBeNeeded
 
     override val mainPage = mainPageOf(
-        "page/%d/" to "Terbaru",
-        "category/indo-sub/page/%d/" to "Sub Indo",
-        "category/english-sub/page/%d/" to "Sub English",
-        "category/jav-reducing-mosaic-decensored-streaming-and-download/page/%d/" to "Reducing Mosaic",
-        "category/amateur/page/%d/" to "Amateur",
-        "category/chinese-porn-streaming/page/%d/" to "China",
-        
+        "" to "Latest",
+        "category/indo-sub" to "Subtitle Indonesia"
     )
 
+    /* =========================
+       HTTP HELPER (USER AGENT)
+       ========================= */
+    private suspend fun getDocument(url: String) =
+        app.get(
+            url,
+            headers = mapOf(
+                "User-Agent" to USER_AGENT,
+                "Referer" to mainUrl,
+                "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            )
+        ).document
+
+    /* =========================
+       MAIN PAGE
+       ========================= */
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
@@ -32,9 +49,10 @@ class Javsek : MainAPI() {
             "$mainUrl/${request.data}/page/$page"
         }
 
-        val document = app.get(url).document
+        val document = getDocument(url)
 
-        val items = document.select("article.post")
+        val items = document
+            .select("article.post, article.type-post, div.post")
             .mapNotNull { it.toSearchResult() }
 
         return newHomePageResponse(
@@ -47,31 +65,49 @@ class Javsek : MainAPI() {
         )
     }
 
+    /* =========================
+       SEARCH RESULT PARSER
+       ========================= */
     private fun Element.toSearchResult(): SearchResponse? {
-        val titleEl = selectFirst("h2.entry-title > a") ?: return null
-        val imgEl = selectFirst("img.wp-post-image")
+        val titleEl = selectFirst("h2.entry-title a, h3.entry-title a") ?: return null
+        val img = selectFirst("img")
+
+        val poster = img?.let {
+            it.attr("data-src")
+                .ifBlank { it.attr("data-lazy-src") }
+                .ifBlank { it.attr("src") }
+        }
 
         return newMovieSearchResponse(
             titleEl.text().trim(),
             fixUrl(titleEl.attr("href")),
             TvType.NSFW
         ) {
-            posterUrl = fixUrlNull(imgEl?.attr("src"))
+            posterUrl = fixUrlNull(poster)
         }
     }
 
+    /* =========================
+       SEARCH
+       ========================= */
     override suspend fun search(query: String): List<SearchResponse> {
-        val document = app.get("$mainUrl/?s=$query").document
-        return document.select("article.post")
+        val document = getDocument("$mainUrl/?s=$query")
+
+        return document
+            .select("article.post, article.type-post, div.post")
             .mapNotNull { it.toSearchResult() }
     }
 
+    /* =========================
+       LOAD DETAIL PAGE
+       ========================= */
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        val document = getDocument(url)
 
         val title = document.selectFirst("meta[property=og:title]")
             ?.attr("content")
-            ?.trim() ?: "Javsek Video"
+            ?.trim()
+            ?: "Javsek Video"
 
         val poster = document.selectFirst("meta[property=og:image]")
             ?.attr("content")
@@ -89,7 +125,7 @@ class Javsek : MainAPI() {
             }
         }
 
-        // button / anchor servers
+        // anchor servers
         document.select("a").forEach {
             val href = it.attr("href")
             if (
@@ -114,6 +150,9 @@ class Javsek : MainAPI() {
         }
     }
 
+    /* =========================
+       LOAD LINKS (MULTI SERVER)
+       ========================= */
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
