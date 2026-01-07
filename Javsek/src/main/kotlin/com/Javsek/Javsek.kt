@@ -3,7 +3,6 @@ package com.Javsek
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.ExtractorLinkType
 
 
 class Javsek : MainAPI() {
@@ -138,7 +137,7 @@ class Javsek : MainAPI() {
     /* =========================
        LOAD LINKS (HLS ONLY)
        ========================= */
-   override suspend fun loadLinks(
+override suspend fun loadLinks(
     data: String,
     isCasting: Boolean,
     subtitleCallback: (SubtitleFile) -> Unit,
@@ -165,14 +164,15 @@ class Javsek : MainAPI() {
                 .forEach { hls ->
                     found = true
                     callback(
-                        ExtractorLink(
-                            name,
-                            "HLS",
-                            hls,
-                            playerUrl,
-                            Qualities.Unknown.value,
-                            true
-                        )
+                        newExtractorLink(
+                            source = name,
+                            name = "HLS",
+                            url = hls
+                        ) {
+                            referer = playerUrl
+                            quality = Qualities.Unknown.value
+                            isM3u8 = true
+                        }
                     )
                 }
 
@@ -182,5 +182,4 @@ class Javsek : MainAPI() {
 
     return found
 }
-
 }
