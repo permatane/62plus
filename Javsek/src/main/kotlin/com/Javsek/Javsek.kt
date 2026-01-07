@@ -25,7 +25,11 @@ class Javsek : MainAPI() {
 
     override val mainPage = mainPageOf(
         "" to "Latest",
-        "category/sub-indo" to "Sub Indo"
+        "category/indo-sub" to "Sub Indo"
+        "category/english-sub" to "Sub English",
+        "category/jav-reducing-mosaic-decensored-streaming-and-download" to "Reducing Mosaic",
+        "category/amateur" to "Amateur",
+        "category/chinese-porn-streaming" to "China"
     )
 
     /* =========================
@@ -114,9 +118,7 @@ class Javsek : MainAPI() {
         val desc = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
 
-        /* =========================
-           AMBIL PLAYER PAGE (?player=x)
-           ========================= */
+        // Ambil halaman PLAYER (?player=1,2,3...)
         val playerPages = document
             .select("a[href*=?player=]")
             .map { fixUrl(it.attr("href")) }
@@ -137,48 +139,52 @@ class Javsek : MainAPI() {
     /* =========================
        LOAD LINKS (HLS ONLY)
        ========================= */
-override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
+    override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
 
-    val playerPages = data.split("||").distinct()
-    var found = false
+        val playerPages = data.split("||").distinct()
+        var found = false
 
-    playerPages.forEach { playerUrl ->
-        try {
-            val html = app.get(
-                playerUrl,
-                headers = mapOf(
-                    "User-Agent" to BROWSER_UA,
-                    "Referer" to mainUrl
-                )
-            ).text
+        // Domain HLS yang TERBUKTI dari Javsek
+        val hlsRegex = Regex(
+            """https?:\/\/(sdqm\.lavonadesign\.sbs|nomtre\.upns\.pro|iplayerhls\.com)[^\s"'<>]+"""
+        )
 
-            Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
-                .findAll(html)
-                .map { it.value }
-                .distinct()
-                .forEach { hls ->
-                    found = true
-                    callback(
-                        newExtractorLink(
-                            source = name,
-                            name = "HLS",
-                            url = hls
-                        ) {
-                            referer = playerUrl
-                            quality = Qualities.Unknown.value
-                        }
+        playerPages.forEach { playerUrl ->
+            try {
+                val html = app.get(
+                    playerUrl,
+                    headers = mapOf(
+                        "User-Agent" to BROWSER_UA,
+                        "Referer" to mainUrl
                     )
-                }
+                ).text
 
-        } catch (_: Exception) {
+                hlsRegex.findAll(html)
+                    .map { it.value }
+                    .distinct()
+                    .forEach { hls ->
+                        found = true
+                        callback(
+                            newExtractorLink(
+                                source = name,
+                                name = "HLS",
+                                url = hls
+                            ) {
+                                referer = playerUrl
+                                quality = Qualities.Unknown.value
+                            }
+                        )
+                    }
+
+            } catch (_: Exception) {
+            }
         }
-    }
 
-    return found
-}
+        return found
+    }
 }
