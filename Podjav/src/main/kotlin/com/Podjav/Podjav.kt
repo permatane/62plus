@@ -6,109 +6,126 @@ import com.lagradost.cloudstream3.utils.*
 
 class Podjav : MainAPI() {
 
-    override var mainUrl = "https://podjav.tv/"
-    override var name = "PodJav"
+    override var mainUrl = "https://podjav.tv"
+    override var name = "Podjav"
     override val hasMainPage = true
     override var lang = "id"
+    override val hasQuickSearch = false
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.NSFW)
+    override val vpnStatus = VPNStatus.MightBeNeeded
 
+    private val BROWSER_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override val mainPage = mainPageOf(
- 
-        "/movies" to "Latest",
-        "/genre/big-tits" to "Tobrut",
-        "/genre/orgasm" to "Orgame"
+        "" to "Latest",
+        "category/japanese" to "Japanese",
+        "category/subtitle" to "Sub Indo"
     )
 
+    private suspend fun getDocument(url: String) =
+        app.get(
+            url,
+            headers = mapOf(
+                "User-Agent" to BROWSER_UA,
+                "Referer" to mainUrl
+            )
+        ).document
+
+    /* =========================
+       MAIN PAGE
+       ========================= */
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
 
-        val pageUrl = if (page == 1) {
+        val url = if (page == 1)
             "$mainUrl/${request.data}"
-        } else {
+        else
             "$mainUrl/${request.data}/page/$page"
-        }
 
-        val document = app.get(pageUrl).document
+        val document = getDocument(url)
 
-        val items = document.select("article, div.item")
+        val items = document
+            .select("article")
             .mapNotNull { it.toSearchResult() }
 
         return newHomePageResponse(
-            list = HomePageList(
-                name = request.name,
-                list = items,
+            HomePageList(
+                request.name,
+                items,
                 isHorizontalImages = false
             ),
             hasNext = items.isNotEmpty()
         )
     }
 
+    /* =========================
+       SEARCH RESULT
+       ========================= */
     private fun Element.toSearchResult(): SearchResponse? {
-        val anchor = this.selectFirst("a") ?: return null
-        val title = anchor.attr("title").ifBlank {
-            anchor.text()
-        }.trim()
+        val titleEl = selectFirst("h2 a") ?: return null
+        val img = selectFirst("img")
 
-        val href = fixUrl(anchor.attr("href"))
-        val poster = fixUrlNull(
-            this.selectFirst("img")?.attr("data-src")
-                ?: this.selectFirst("img")?.attr("src")
-        )
-
-        return newMovieSearchResponse(title, href, TvType.NSFW) {
-            posterUrl = poster
+        return newMovieSearchResponse(
+            titleEl.text().trim(),
+            fixUrl(titleEl.attr("href")),
+            TvType.NSFW
+        ) {
+            posterUrl = fixUrlNull(
+                img?.attr("data-src") ?: img?.attr("src")
+            )
         }
     }
 
+    /* =========================
+       SEARCH
+       ========================= */
     override suspend fun search(query: String): List<SearchResponse> {
-        val document = app.get("$mainUrl/?s=$query").document
-
-        return document.select("article, div.item")
+        val document = getDocument("$mainUrl/?s=$query")
+        return document
+            .select("article")
             .mapNotNull { it.toSearchResult() }
     }
 
+    /* =========================
+       LOAD DETAIL
+       ========================= */
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        val document = getDocument(url)
 
         val title = document.selectFirst("meta[property=og:title]")
-            ?.attr("content")
-            ?.trim()
-            ?: "Podjav Video"
+            ?.attr("content") ?: "Podjav Video"
 
         val poster = document.selectFirst("meta[property=og:image]")
             ?.attr("content")
 
-        val description = document.selectFirst("meta[property=og:description]")
+        val desc = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
 
-        val recommendations = document.select("article.related, div.related item")
-            .mapNotNull {
-                val a = it.selectFirst("a") ?: return@mapNotNull null
-                val t = a.attr("title").trim()
-                val h = fixUrl(a.attr("href"))
-                val p = fixUrlNull(it.selectFirst("img")?.attr("src"))
-
-                newMovieSearchResponse(t, h, TvType.NSFW) {
-                    posterUrl = p
-                }
-            }
+        // Ambil SEMUA iframe player
+        val iframeLinks = document
+            .select("iframe[src]")
+            .map { fixUrl(it.attr("src")) }
+            .distinct()
 
         return newMovieLoadResponse(
             name = title,
             url = url,
             type = TvType.NSFW,
-            data = url
+            data = iframeLinks.joinToString("||")
         ) {
-            this.posterUrl = poster
-            this.plot = description
-            this.recommendations = recommendations
+            posterUrl = poster
+            plot = desc
         }
     }
 
+    /* =========================
+       LOAD LINKS (EXTRACTOR)
+       ========================= */
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -116,20 +133,24 @@ class Podjav : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
 
-        val document = app.get(data).document
+        val iframeLinks = data.split("||").distinct()
+        var found = false
 
-        val iframeUrls = document.select("iframe")
-            .mapNotNull { it.attr("src") }
-            .filter { it.startsWith("http") }
-
-        iframeUrls.forEach { iframe ->
-            loadExtractor(
-                url = iframe,
-                subtitleCallback = subtitleCallback,
-                callback = callback
-            )
+        iframeLinks.forEach { iframe ->
+            try {
+                // Gunakan extractor bawaan Cloudstream
+                loadExtractor(
+                    iframe,
+                    referer = mainUrl,
+                    subtitleCallback = subtitleCallback
+                ) { link ->
+                    found = true
+                    callback(link)
+                }
+            } catch (_: Exception) {
+            }
         }
 
-        return iframeUrls.isNotEmpty()
+        return found
     }
 }
