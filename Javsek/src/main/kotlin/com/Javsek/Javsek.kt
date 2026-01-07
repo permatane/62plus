@@ -163,40 +163,63 @@ class Javsek : MainAPI() {
     /* =========================
        LOAD LINKS (MULTI SERVER)
        ========================= */
-override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
-
-  val document = app.get(data).document
+  override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+val document = app.get(data).document
         
-        // 1. Ambil semua iframe
-        document.select("iframe").forEach { iframe ->
-            val src = iframe.attr("src")
-            if (src.isNotEmpty()) {
-                val fixedUrl = fixUrl(src)
-                
-                // Khusus untuk Earnvid/Vidhide, kita gunakan extractor Vidguard 
-                // karena mereka menggunakan base code yang sama (seperti terlihat di player.txt)
-                if (fixedUrl.contains("earnvid.com") || fixedUrl.contains("vidhide")) {
-                    loadExtractor(fixedUrl, data, subtitleCallback, callback)
-                } else {
-                    // Gunakan extractor otomatis untuk provider lain (Doodstream, dll)
-                    loadExtractor(fixedUrl, data, subtitleCallback, callback)
+        // 1. Ambil semua opsi dari Dropdown Player (jika ada)
+        // JavSek biasanya menggunakan <select id="select-player"> atau list <a>
+        val playerOptions = document.select("select#select-player option, .muvipro-player-tabs li a, .player-option")
+        
+        if (playerOptions.isNotEmpty()) {
+            playerOptions.forEach { option ->
+                // Jika berupa dropdown <option>, ambil value-nya. Jika <a>, ambil href.
+                val playerUrl = option.attr("value").ifBlank { option.attr("href") }
+                if (playerUrl.isNotBlank() && playerUrl.startsWith("http")) {
+                    fetchAndExtract(playerUrl, data, subtitleCallback, callback)
                 }
             }
         }
 
-        // 2. Scan link manual di dalam konten (Tombol Download/Stream)
-        document.select("div.entry-content a").forEach { link ->
-            val href = link.attr("href")
-            if (href.contains("earnvid") || href.contains("dood") || href.contains("wish") || href.contains("filelions")) {
-                loadExtractor(fixUrl(href), data, subtitleCallback, callback)
+        // 2. Scan Iframe yang ada di halaman utama (default player)
+        document.select("iframe").forEach { iframe ->
+            val src = iframe.attr("src")
+            if (src.isNotEmpty() && !src.contains("about:blank")) {
+                loadExtractor(fixUrl(src), data, subtitleCallback, callback)
             }
         }
 
+        // 3. Scan link download/external di bawah konten
+        document.select(".entry-content a[href*='earnvid'], .entry-content a[href*='dood'], .entry-content a[href*='vidguard']").forEach { link ->
+            loadExtractor(fixUrl(link.attr("href")), data, subtitleCallback, callback)
+        }
+
         return true
+    }
+
+    private suspend fun fetchAndExtract(url: String, referer: String, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit) {
+        try {
+            val doc = app.get(url, referer = referer).document
+            doc.select("iframe").forEach { iframe ->
+                val src = fixUrl(iframe.attr("src"))
+                // Paksa loadExtractor mengenali earnvid sebagai vidguard jika perlu
+                loadExtractor(src, url, subtitleCallback, callback)
+            }
+        } catch (e: Exception) {
+            // Log error jika diperlukan
+        }
+    }
+
+    private fun Element.getImageAttr(): String? {
+        return when {
+            this.hasAttr("data-src") -> this.attr("abs:data-src")
+            this.hasAttr("data-lazy-src") -> this.attr("abs:data-lazy-src")
+            this.hasAttr("srcset") -> this.attr("abs:srcset").substringBefore(" ")
+            else -> this.attr("abs:src")
+        }
     }
 }
