@@ -25,11 +25,34 @@ class Javsek : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) "$mainUrl/${request.data.replace("page/%d/", "")}" 
                   else "$mainUrl/${request.data.format(page)}"
-        
         val document = app.get(url).document
         val home = document.select("article").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, home)
     }
+    
+    private fun Element.toSearchResult(): SearchResponse? {
+        val titleElement = this.selectFirst("h2.entry-title a") ?: return null
+        val title = titleElement.text().trim()
+        val href = fixUrl(titleElement.attr("href"))
+        val posterUrl = this.selectFirst("image")?.getImageAttr()
 
+        return newMovieSearchResponse(title, href, TvType.NSFW) {
+            this.posterUrl = posterUrl
+        }
+    }
+    
+    override suspend fun load(url: String): LoadResponse {
+        val document = app.get(url).document
+        val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
+        
+        // Mengambil gambar dari elemen utama konten
+        val poster = document.selectFirst("div.entry-content img")?.getImageAttr()
+        val plot = document.selectFirst("div.entry-content p")?.text()
 
+        return newMovieLoadResponse(title, url, TvType.NSFW, url) {
+            this.posterUrl = poster
+            this.plot = plot
+            this.tags = document.select("span.tags-links a").eachText()
+        }
+    }
 }
