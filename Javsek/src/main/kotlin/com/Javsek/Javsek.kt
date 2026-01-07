@@ -1,8 +1,10 @@
-package com.javsek
+package com.Javsek
 
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.ExtractorLinkType
+
 
 class Javsek : MainAPI() {
 
@@ -136,51 +138,49 @@ class Javsek : MainAPI() {
     /* =========================
        LOAD LINKS (HLS ONLY)
        ========================= */
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+   override suspend fun loadLinks(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        val playerPages = data.split("||").distinct()
-        var found = false
+    val playerPages = data.split("||").distinct()
+    var found = false
 
-        playerPages.forEach { playerUrl ->
-            try {
-                val html = app.get(
-                    playerUrl,
-                    headers = mapOf(
-                        "User-Agent" to BROWSER_UA,
-                        "Referer" to mainUrl
-                    )
-                ).text
+    playerPages.forEach { playerUrl ->
+        try {
+            val html = app.get(
+                playerUrl,
+                headers = mapOf(
+                    "User-Agent" to BROWSER_UA,
+                    "Referer" to mainUrl
+                )
+            ).text
 
-                /* =========================
-                   CARI HLS ASLI (Server7)
-                   ========================= */
-                Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
-                    .findAll(html)
-                    .map { it.value }
-                    .distinct()
-                    .forEach { hls ->
-                        found = true
-                        callback(
-                            ExtractorLink(
-                                source = name,
-                                name = "HLS",
-                                url = hls,
-                                referer = playerUrl,
-                                quality = Qualities.Unknown.value,
-                                type = ExtractorLinkType.M3U8
-                            )
+            Regex("""https?:\/\/[^\s"'<>]+?\.(m3u8|txt)""")
+                .findAll(html)
+                .map { it.value }
+                .distinct()
+                .forEach { hls ->
+                    found = true
+                    callback(
+                        ExtractorLink(
+                            name,
+                            "HLS",
+                            hls,
+                            playerUrl,
+                            Qualities.Unknown.value,
+                            true
                         )
-                    }
+                    )
+                }
 
-            } catch (_: Exception) {
-            }
+        } catch (_: Exception) {
         }
-
-        return found
     }
+
+    return found
+}
+
 }
