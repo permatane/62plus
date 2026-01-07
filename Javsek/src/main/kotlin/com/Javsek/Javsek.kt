@@ -1,10 +1,8 @@
 package com.Javsek
 
-import android.content.Context
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.USER_AGENT
 
 class Javsek : MainAPI() {
 
@@ -17,19 +15,26 @@ class Javsek : MainAPI() {
     override val supportedTypes = setOf(TvType.NSFW)
     override val vpnStatus = VPNStatus.MightBeNeeded
 
+    /* =========================
+       USER AGENT (MANUAL)
+       ========================= */
+    private val BROWSER_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
     override val mainPage = mainPageOf(
         "" to "Latest",
         "category/indo-sub" to "Subtitle Indonesia"
     )
 
     /* =========================
-       HTTP HELPER (USER AGENT)
+       HTTP HELPER
        ========================= */
     private suspend fun getDocument(url: String) =
         app.get(
             url,
             headers = mapOf(
-                "User-Agent" to USER_AGENT,
+                "User-Agent" to BROWSER_UA,
                 "Referer" to mainUrl,
                 "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
             )
