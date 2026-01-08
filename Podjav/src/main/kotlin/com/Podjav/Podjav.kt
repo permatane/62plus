@@ -131,7 +131,7 @@ override suspend fun loadLinks(
             ) {
                 this.referer = data
                 this.quality = Qualities.Unknown.value
-                this.isM3u8 = false
+              
             }
         )
         found = true
@@ -150,7 +150,7 @@ override suspend fun loadLinks(
             ) {
                 this.referer = data
                 this.quality = Qualities.Unknown.value
-                this.isM3u8 = false
+
             }
         )
         found = true
@@ -182,6 +182,7 @@ override suspend fun loadLinks(
 }
 
 }
+
 
 
 
