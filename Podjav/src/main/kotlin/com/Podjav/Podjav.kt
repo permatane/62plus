@@ -108,30 +108,97 @@ class Podjav : MainAPI() {
         }
     }
 
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+override suspend fun loadLinks(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        val document = app.get(data).document
+    val document = app.get(data).document
+    var found = false
 
-        val iframeUrls = document.select("iframe")
-            .mapNotNull { it.attr("src") }
-            .filter { it.startsWith("http") }
+    // =================================================
+    // 1️⃣ DIRECT VIDEO <video src="...mp4">
+    // =================================================
+    document.select("video[src]").forEach { video ->
+        val videoUrl = fixUrlNull(video.attr("src")) ?: return@forEach
 
-        iframeUrls.forEach { iframe ->
-            loadExtractor(
-                url = iframe,
-                subtitleCallback = subtitleCallback,
-                callback = callback
+        callback(
+            ExtractorLink(
+                source = name,
+                name = "Direct MP4",
+                url = videoUrl,
+                referer = data,
+                quality = Qualities.Unknown.value,
+                isM3u8 = false
             )
+        )
+        found = true
+    }
+
+    // =================================================
+    // 2️⃣ <source src="..."> DI DALAM <video>
+    // =================================================
+    document.select("video source[src]").forEach { source ->
+        val videoUrl = fixUrlNull(source.attr("src")) ?: return@forEach
+
+        callback(
+            ExtractorLink(
+                source = name,
+                name = "Direct MP4",
+                url = videoUrl,
+                referer = data,
+                quality = Qualities.Unknown.value,
+                isM3u8 = false
+            )
+        )
+        found = true
+    }
+
+    // =================================================
+    // 3️⃣ IFRAME EMBED
+    // =================================================
+    document.select("iframe[src]").forEach { iframe ->
+        val src = fixUrlNull(iframe.attr("src")) ?: return@forEach
+        loadExtractor(src, subtitleCallback, callback)
+        found = true
+    }
+
+    // =================================================
+    // 4️⃣ DATA ATTRIBUTES (data-src / data-video / data-embed)
+    // =================================================
+    document.select("[data-src], [data-video], [data-embed]").forEach { el ->
+        listOf(
+            el.attr("data-src"),
+            el.attr("data-video"),
+            el.attr("data-embed")
+        ).forEach { raw ->
+            val url = fixUrlNull(raw)
+            if (url != null) {
+                loadExtractor(url, subtitleCallback, callback)
+                found = true
+            }
+        }
+    }
+
+    // =================================================
+    // 5️⃣ JAVASCRIPT INLINE (FALLBACK TERAKHIR)
+    // =================================================
+    val scripts = document.select("script").joinToString("\n") { it.data() }
+
+    Regex("""https?:\/\/[^\s'"]+""")
+        .findAll(scripts)
+        .map { it.value }
+        .filter {
+            it.contains("embed") ||
+            it.contains("player") ||
+            it.contains("stream")
+        }
+        .forEach { url ->
+            loadExtractor(url, subtitleCallback, callback)
+            found = true
         }
 
-        return iframeUrls.isNotEmpty()
-    }
+    return found
 }
-
-
-
