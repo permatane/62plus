@@ -3,151 +3,124 @@ package com.Podjav
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.ExtractorLink
 
 class Podjav : MainAPI() {
+    override var mainUrl              = "https://podjav.tv"
+    override var name                 = "Podjav"
+    override val hasMainPage          = true
+    override var lang                 = "id"
+    override val supportedTypes       = setOf(TvType.NSFW)
 
-    override var mainUrl = "https://podjav.tv/"
-    override var name = "PodJav"
-    override val hasMainPage = true
-    override var lang = "id"
-    override val supportedTypes = setOf(TvType.NSFW)
 
-
+    // Mapping kategori sesuai struktur menu di Podjav
     override val mainPage = mainPageOf(
- 
-        "/movies" to "Terbaru",
-        "/genre/big-tits" to "Tobrut",
-        "/genre/orgasm" to "Orgasme"
+        "movies" to "Terbaru",
+        "genre/big-tits" to "Tobrut",
+        "genre/orgasm" to "Orgasme"
     )
 
-    override suspend fun getMainPage(
-        page: Int,
-        request: MainPageRequest
-    ): HomePageResponse {
-
-        val pageUrl = if (page == 1) {
-            "$mainUrl/${request.data}"
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val url = if (page <= 1) {
+            "$mainUrl/${request.data}/"
         } else {
-            "$mainUrl/${request.data}/page/$page"
+            "$mainUrl/${request.data}/page/$page/"
         }
-
-        val document = app.get(pageUrl).document
-
-        val items = document.select("article, div.item")
-            .mapNotNull { it.toSearchResult() }
-
+        
+        val document = app.get(url).document
+        val home = document.select("article.v-card").mapNotNull {
+            it.toSearchResult()
+        }
+        
         return newHomePageResponse(
             list = HomePageList(
                 name = request.name,
-                list = items,
+                list = home,
                 isHorizontalImages = false
             ),
-            hasNext = items.isNotEmpty()
+            hasNext = true
         )
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val anchor = this.selectFirst("a") ?: return null
-        val title = anchor.attr("title").ifBlank {
-            anchor.text()
-        }.trim()
-
-        val href = fixUrl(anchor.attr("href"))
-        val poster = fixUrlNull(
-            this.selectFirst("img")?.attr("data-src")
-                ?: this.selectFirst("img")?.attr("src")
-        )
+        val title     = this.selectFirst("h2.entry-title a")?.text()?.trim() ?: return null
+        val href      = fixUrl(this.selectFirst("a")?.attr("href") ?: "")
+        val posterUrl = fixUrlNull(this.selectFirst("img")?.attr("data-src") ?: this.selectFirst("img")?.attr("src"))
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
-            posterUrl = poster
+            this.posterUrl = posterUrl
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val document = app.get("$mainUrl/?s=$query").document
+        val searchResponse = mutableListOf<SearchResponse>()
 
-        return document.select("article, div.item")
-            .mapNotNull { it.toSearchResult() }
+        for (i in 1..2) {
+            val url = "$mainUrl/page/$i/?s=$query"
+            val document = app.get(url).document
+            val results = document.select("article.v-card").mapNotNull { it.toSearchResult() }
+
+            if (results.isEmpty()) break
+            searchResponse.addAll(results)
+        }
+        return searchResponse
     }
 
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
 
-        val title = document.selectFirst("meta[property=og:title]")
-            ?.attr("content")
-            ?.trim()
-            ?: "Javsek Video"
+        val title       = document.selectFirst("h1.entry-title")?.text()?.trim() 
+                          ?: document.selectFirst("meta[property=og:title]")?.attr("content") ?: ""
+        val poster      = document.selectFirst("meta[property=og:image]")?.attr("content")
+        val description = document.selectFirst("div.entry-content p")?.text() 
+                          ?: document.selectFirst("meta[property=og:description]")?.attr("content")
 
-        val poster = document.selectFirst("meta[property=og:image]")
-            ?.attr("content")
+        val recommendations = document.select("div.related-posts article").mapNotNull {
+            it.toSearchResult()
+        }
 
-        val description = document.selectFirst("meta[property=og:description]")
-            ?.attr("content")
-            
-        val recommendations = document.select("article.related, div.related item")
-            .mapNotNull {
-                val a = it.selectFirst("a") ?: return@mapNotNull null
-                val t = a.attr("title").trim()
-                val h = fixUrl(a.attr("href"))
-                val p = fixUrlNull(it.selectFirst("img")?.attr("src"))
-
-                newMovieSearchResponse(t, h, TvType.NSFW) {
-                    posterUrl = p
-                }            
-            }
-
-        return newMovieLoadResponse(
-            name = title,
-            url = url,
-            type = TvType.NSFW,
-            data = url
-        ) {
+        return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
-            this.plot = description
+            this.plot      = description
             this.recommendations = recommendations
         }
     }
 
 override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = app.get(data).document
+        
+        // 1. Mencari direct link dari tag <video src="...">
+        val directVideoUrl = document.selectFirst("video.jw-video")?.attr("src") 
+            ?: document.selectFirst("video")?.attr("src")
 
-    val document = app.get(data).document
-    var found = false
-
-    // =================================================
-    // PODJAV: DIRECT JW PLAYER <video src="...mp4">
-    // =================================================
-    document.select("video.jw-video[src], video[src]").forEach { video ->
-        val videoUrl = fixUrlNull(video.attr("src")) ?: return@forEach
-
-        callback(
-            newExtractorLink(
-                source = name,
-                name = "Direct MP4",
-                url = videoUrl,
-                type = ExtractorLinkType.VIDEO
-            ) {
-                // WAJIB: referer halaman detail
-                this.referer = data
-
-                // Aman untuk MP4 Podjav
-                this.quality = Qualities.Unknown.value
-
-                // Header tambahan (penting untuk vod.podjav.tv)
-                this.headers = mapOf(
-                    "User-Agent" to USER_AGENT,
-                    "Referer" to data
+        if (!directVideoUrl.isNullOrEmpty()) {
+            callback(
+                ExtractorLink(
+                    this.name,
+                    this.name,
+                    fixUrl(directVideoUrl),
+                    referer = "$mainUrl/",
+                    quality = Qualities.Unknown.value,
+                    isM3u8 = directVideoUrl.contains(".m3u8")
                 )
+            )
+        }
+
+        // 2. Fallback: Mencari di dalam iframe jika video tidak ditemukan di root document
+        document.select("iframe").forEach { iframe ->
+            val src = iframe.attr("src")
+            if (src.isNotEmpty()) {
+                loadExtractor(fixUrl(src), subtitleCallback, callback)
             }
-        )
+        }
 
-        found = true
+        return true
     }
+}
 
-    return found
-}
-}
