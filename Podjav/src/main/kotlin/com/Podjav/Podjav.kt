@@ -5,15 +5,11 @@ import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 
 class Podjav : MainAPI() {
-
     override var mainUrl = "https://podjav.tv"
     override var name = "Podjav"
     override val hasMainPage = true
     override var lang = "id"
-    override val hasQuickSearch = false
-    override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.NSFW)
-    override val vpnStatus = VPNStatus.MightBeNeeded
 
     override val mainPage = mainPageOf(
         "/movies" to "Latest",
@@ -35,7 +31,7 @@ class Podjav : MainAPI() {
 
         val document = app.get(url).document
 
-        val items = document.select("article")
+        val items = document.select("article, div.item")
             .mapNotNull { it.toSearchResult() }
 
         return newHomePageResponse(
@@ -53,17 +49,13 @@ class Podjav : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
 
         val anchor = selectFirst("a[href]") ?: return null
-
-        // 🔴 TITLE WAJIB dari text <a>
         val title = anchor.text().trim()
+        
         if (title.isBlank()) return null
-
         val href = fixUrl(anchor.attr("href"))
-
         val img = anchor.selectFirst("img")
             ?: selectFirst("img")
             ?: return null
-
         val poster = fixUrlNull(
             img.attr("data-src").takeIf { it.isNotBlank() }
                 ?: img.attr("data-lazy-src").takeIf { it.isNotBlank() }
@@ -87,7 +79,7 @@ class Podjav : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val document = app.get("$mainUrl/?s=$query").document
-        return document.select("article")
+        return document.select("article, div.item")
             .mapNotNull { it.toSearchResult() }
     }
 
@@ -96,7 +88,6 @@ class Podjav : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
 
         val document = app.get(url).document
-
         val title = document.selectFirst("h1")
             ?.text()?.trim()
             ?: document.selectFirst("meta[property=og:title]")
@@ -105,12 +96,9 @@ class Podjav : MainAPI() {
 
         val poster = fixUrlNull(
             document.selectFirst("meta[property=og:image]")
-                ?.attr("content")
-        )
-
+                ?.attr("content"))
         val description = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
-
         return newMovieLoadResponse(
             title,
             url,
@@ -142,4 +130,5 @@ class Podjav : MainAPI() {
 
         return true
     }
+
 }
