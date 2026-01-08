@@ -101,7 +101,7 @@ override suspend fun loadLinks(
 
         if (!directVideoUrl.isNullOrEmpty()) {
             callback(
-                ExtractorLink(
+                newExtractorLink(
                     this.name,
                     this.name,
                     fixUrl(directVideoUrl),
@@ -123,4 +123,5 @@ override suspend fun loadLinks(
         return true
     }
 }
+
 
