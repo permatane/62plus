@@ -1,4 +1,4 @@
-ppackage com.Podjav
+package com.Podjav
 
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
@@ -132,4 +132,5 @@ class Javsek : MainAPI() {
         return iframeUrls.isNotEmpty()
     }
 }
+
 
