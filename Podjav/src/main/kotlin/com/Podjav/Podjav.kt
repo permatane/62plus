@@ -16,8 +16,8 @@ class Javsek : MainAPI() {
     override val mainPage = mainPageOf(
  
         "" to "Terbaru",
-        "genre/big-tits" to "Tobrut",
-        "/"genre/orgasm" to "Orgasme"
+        "/genre/big-tits" to "Tobrut",
+        "/genre/orgasm" to "Orgasme"
     )
 
     override suspend fun getMainPage(
@@ -83,6 +83,17 @@ class Javsek : MainAPI() {
 
         val description = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
+            
+        val recommendations = document.select("article.related, div.related item")
+            .mapNotNull {
+                val a = it.selectFirst("a") ?: return@mapNotNull null
+                val t = a.attr("title").trim()
+                val h = fixUrl(a.attr("href"))
+                val p = fixUrlNull(it.selectFirst("img")?.attr("src"))
+
+                newMovieSearchResponse(t, h, TvType.NSFW) {
+                    posterUrl = p
+                }            
             }
 
         return newMovieLoadResponse(
@@ -121,3 +132,4 @@ class Javsek : MainAPI() {
         return iframeUrls.isNotEmpty()
     }
 }
+
