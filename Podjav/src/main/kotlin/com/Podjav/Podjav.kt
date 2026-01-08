@@ -31,7 +31,7 @@ class Podjav : MainAPI() {
         }
         
         val document = app.get(url).document
-        val home = document.select("article.v-card").mapNotNull {
+        val home = document.select("article, div.item").mapNotNull {
             it.toSearchResult()
         }
         
@@ -61,7 +61,7 @@ class Podjav : MainAPI() {
         for (i in 1..2) {
             val url = "$mainUrl/page/$i/?s=$query"
             val document = app.get(url).document
-            val results = document.select("article.v-card").mapNotNull { it.toSearchResult() }
+            val results = document.select("article, div.item").mapNotNull { it.toSearchResult() }
 
             if (results.isEmpty()) break
             searchResponse.addAll(results)
@@ -113,6 +113,7 @@ class Podjav : MainAPI() {
         return iframeUrls.isNotEmpty()
     }
 }
+
 
 
 
