@@ -15,7 +15,7 @@ class Podjav : MainAPI() {
 
     override val mainPage = mainPageOf(
  
-        "" to "Terbaru",
+        "/movies" to "Terbaru",
         "/genre/big-tits" to "Tobrut",
         "/genre/orgasm" to "Orgasme"
     )
@@ -118,8 +118,10 @@ override suspend fun loadLinks(
     val document = app.get(data).document
     var found = false
 
-    // ================= DIRECT <video src> =================
-    document.select("video[src]").forEach { video ->
+    // =================================================
+    // PODJAV: DIRECT JW PLAYER <video src="...mp4">
+    // =================================================
+    document.select("video.jw-video[src], video[src]").forEach { video ->
         val videoUrl = fixUrlNull(video.attr("src")) ?: return@forEach
 
         callback(
@@ -129,61 +131,23 @@ override suspend fun loadLinks(
                 url = videoUrl,
                 type = ExtractorLinkType.VIDEO
             ) {
+                // WAJIB: referer halaman detail
                 this.referer = data
-                this.quality = Qualities.Unknown.value
-              
-            }
-        )
-        found = true
-    }
 
-    // ================= <source src> =================
-    document.select("video source[src]").forEach { source ->
-        val videoUrl = fixUrlNull(source.attr("src")) ?: return@forEach
-
-        callback(
-            newExtractorLink(
-                source = name,
-                name = "Direct MP4",
-                url = videoUrl,
-                type = ExtractorLinkType.VIDEO
-            ) {
-                this.referer = data
+                // Aman untuk MP4 Podjav
                 this.quality = Qualities.Unknown.value
 
+                // Header tambahan (penting untuk vod.podjav.tv)
+                this.headers = mapOf(
+                    "User-Agent" to USER_AGENT,
+                    "Referer" to data
+                )
             }
         )
-        found = true
-    }
 
-    // ================= IFRAME =================
-    document.select("iframe[src]").forEach { iframe ->
-        val src = fixUrlNull(iframe.attr("src")) ?: return@forEach
-        loadExtractor(src, subtitleCallback, callback)
         found = true
-    }
-
-    // ================= DATA ATTR =================
-    document.select("[data-src], [data-video], [data-embed]").forEach { el ->
-        listOf(
-            el.attr("data-src"),
-            el.attr("data-video"),
-            el.attr("data-embed")
-        ).forEach { raw ->
-            val url = fixUrlNull(raw)
-            if (url != null) {
-                loadExtractor(url, subtitleCallback, callback)
-                found = true
-            }
-        }
     }
 
     return found
 }
-
 }
-
-
-
-
-
