@@ -11,6 +11,7 @@ class JavsekPlugin: Plugin() {
         registerMainAPI(Javsek())
         registerExtractorAPI(Earnvid())
         registerExtractorAPI(Earnvids())
+        registerExtractorAPI(Earnvida())
         registerExtractorAPI(Luluvideo())
         registerExtractorAPI(Lulustream())
         
