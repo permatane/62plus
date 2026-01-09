@@ -91,7 +91,38 @@ override suspend fun loadLinks(
     subtitleCallback: (SubtitleFile) -> Unit,
     callback: (ExtractorLink) -> Unit
 ): Boolean {
-   val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
+    var linksAdded = false
+
+    // 1. Prioritas tertinggi: Ambil langsung dari tag <video> di halaman
+    try {
+        val doc = app.get(data, timeout = 30).document
+        val videoSrc = doc.selectFirst("video.jw-video")?.attr("src")
+            ?: doc.selectFirst("video")?.attr("src")
+
+        if (!videoSrc.isNullOrEmpty() && videoSrc.startsWith("http")) {
+            callback(
+                newExtractorLink(
+                    source = this.name,
+                    name = "Direct MP4 • 1080p (Player)",
+                    url = videoSrc,
+                    type = ExtractorLinkType.VIDEO
+                ) {
+                    this.referer = data
+                    this.quality = Qualities.P1080.value
+                    this.headers = mapOf(
+                        "Origin" to "https://podjav.tv",
+                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                    )
+                }
+            )
+            linksAdded = true
+        }
+    } catch (e: Exception) {
+        // Jika gagal fetch halaman (Cloudflare block dll), lanjut ke fallback
+    }
+
+    // 2. Fallback: Generate link berdasarkan kode JAV dari URL
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
     val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return linksAdded
 
     // Link standar: KODE.mp4
@@ -111,8 +142,10 @@ override suspend fun loadLinks(
             )
         }
     )
-// 3. Extra fallback untuk kasus seperti START-440-id.mp4 (Sub Indo version)
-        val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
+    linksAdded = true
+
+    // Link versi Sub Indo: KODE-id.mp4 (contoh: START-440-id.mp4)
+    val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
     if (indoUrl != standardUrl) {  // Hindari duplikat
         callback(
             newExtractorLink(
@@ -129,8 +162,8 @@ override suspend fun loadLinks(
                 )
             }
         )
-    return true
-}
+    }
 
+    return linksAdded
 }
-
+}
