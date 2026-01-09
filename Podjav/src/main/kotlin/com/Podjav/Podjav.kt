@@ -102,13 +102,14 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
 
         val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
             ?.attr("content")
-            
+        val posterUrl = selectFirst("img")?.attr("src")?.let { fixUrlNull(it) }
+         
         newMovieSearchResponse(
             name = title,
             url = href,
             type = TvType.NSFW
         ) {
-            this.posterUrl = poster
+            this.posterUrl = posterUrl
         }
     }
 
@@ -218,6 +219,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
