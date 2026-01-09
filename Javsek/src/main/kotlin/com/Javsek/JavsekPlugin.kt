@@ -14,5 +14,6 @@ class JavsekPlugin: Plugin() {
         registerExtractorAPI(Turbovid())
         registerExtractorAPI(MyCloudZ())
         registerExtractorAPI(Cloudwish())
+        registerExtractorAPI(luluvdoo())
     }
 }
