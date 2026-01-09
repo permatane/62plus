@@ -54,10 +54,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
 
         newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = poster
-            // Tags ambil dari div.sgeneros di parent (jika ada)
-            this.tags = element.parents().select("div.sgeneros a[rel=tag]")
-                .map { it.text().trim() }
-                .filter { it.isNotBlank() }
+            this.tags = document.select("a[rel=tag]").eachText()
         }
     }
 
@@ -223,6 +220,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
