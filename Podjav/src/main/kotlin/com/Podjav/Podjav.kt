@@ -102,8 +102,8 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
 
         val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
             ?.attr("content")
-        val poster = element.parents().selectFirst("img")?.attr("src")?.let { fixUrlNull(it) }
-            ?: element.selectFirst("img")?.attr("src")?.let { fixUrlNull(it) }
+        val poster = document.selectFirst("meta[property=og:image]")
+            ?.attr("content")
          
         newMovieSearchResponse(
             name = title,
@@ -220,6 +220,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
