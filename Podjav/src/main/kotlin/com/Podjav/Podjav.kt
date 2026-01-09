@@ -56,74 +56,46 @@ class Podjav : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
-
         val title = document.selectFirst("meta[property=og:title]")
             ?.attr("content")
             ?.trim()
             ?: "Podjav Video"
-
         val poster = document.selectFirst("meta[property=og:image]")
             ?.attr("content")
-
         val description = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
-
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
             this.plot = description
+            this.tags = document.select("span.tags-links a").eachText()
         }
     }
 
-     override suspend fun loadLinks(data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit): Boolean {
-        val document = app.get(data).document
-        val script=document.select("script:containsData(iframe_url)").html()
-        val IFRAME_B64_REGEX = Regex(""""iframe_url":"([^"]+)"""")
-         val iframeUrls = IFRAME_B64_REGEX.findAll(script)
-             .map { it.groupValues[1] }
-             .map { Base64.decode(it, Base64.DEFAULT).let(::String) }
-             .toList()
-         iframeUrls.forEach {
-             val iframedoc=app.get(it, referer = it).document
-             val olid=iframedoc.toString().substringAfter("var OLID = '").substringBefore("'")
-             val newreq=iframedoc.toString().substringAfter("iframe").substringAfter("src=\"").substringBefore("'+OLID")
-             val reverseid= olid.edoceD()
-             val location= app.get("$newreq$reverseid", referer = it, allowRedirects = false)
-             val link=location.headers["location"].toString()
-             if (link.contains(".m3u"))
-             {
-                 callback.invoke(
-                     newExtractorLink(
-                         source = name,
-                         name = name,
-                         url = link,
-                         INFER_TYPE
-                     ) {
-                         this.referer = ""
-                         this.quality = getQualityFromName("")
-                     }
-                 )
-             }
-             else{
-                 loadExtractor(link, referer = it,subtitleCallback,callback)
-             }
-         }
-        return true
-    }
+  override suspend fun loadLinks(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
+    val doc = app.get(data).document
 
-    fun String.edoceD(): String {
-        var x = this.length - 1
-        var edoceD = ""
-        while (x >= 0) {
-            edoceD += this[x]
-            x--
-        }
-        return edoceD
-    }
+    // Mencari direct MP4 src dari tag <video>
+    val mp4Url = doc.selectFirst("video.jw-video")?.attr("src")
+        ?: doc.selectFirst("video")?.attr("src")
+        ?: return false
+
+    // Jika src relatif, jadikan absolute (meskipun dari contoh sudah absolute)
+    val fullMp4Url = fixUrlNull(mp4Url) ?: return false
+
+    callback(
+        ExtractorLink(
+            source = name,
+            name = "$name Direct Stream",
+            url = fullMp4Url,
+            referer = mainUrl,
+            quality = Qualities.P1080.value,  // Kebanyakan video di podjav.tv adalah 1080p atau 720p HD
+            isM3u8 = false
+        )
+    )
+    return true
 }
-
-
-
-
-
-
-
