@@ -17,25 +17,20 @@ class Podjav : MainAPI() {
 
     override val mainPage = mainPageOf(
         "/movies/" to "Update Terbaru",
-        "/genre/orgasm/" to "Orgasme"
+        "/genre/orgasm/" to "Orgasme",
         "/genre/big-tits/" to "Tobrut",
         "/genre/creampie/" to "Krim Pejuh",
         "/genre/abuse/" to "Pemaksaan",
-        "/genre/model/" to "Model Cantik"
-        "/genre/mature-woman/" to "Wanita Dewasa"
-        "/genre/step-mother/" to "Ibu Angkat"
-        "/genre/nurse/" to "Perawat"
-        "/genre/secretary/" to "Sekretaris"
-        "/genre/female-teacher/" to "Guru"
-        "/genre/swingers/" to "Tukar Pasangan"
-        "/genre/solowork/" to "Solowork"
-        "/genre/cuckold/" to "Istri Menyimpang",
-        
-        
-        
-        
-        
-        // Add more genres if needed
+        "/genre/model/" to "Model Cantik",
+        "/genre/mature-woman/" to "Wanita Dewasa",
+        "/genre/step-mother/" to "Ibu Angkat",
+        "/genre/nurse/" to "Perawat",
+        "/genre/secretary/" to "Sekretaris",
+        "/genre/female-teacher/" to "Guru",
+        "/genre/swingers/" to "Tukar Pasangan",
+        "/genre/solowork/" to "Solowork",
+        "/genre/cuckold/" to "Istri Menyimpang"
+
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -131,6 +126,7 @@ override suspend fun loadLinks(
     return true
 }
 }
+
 
 
 
