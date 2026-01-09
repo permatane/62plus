@@ -54,7 +54,6 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
 
         newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = poster
-            this.tags = document.select("a[rel=tag]").eachText()
         }
     }
 
@@ -220,6 +219,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
