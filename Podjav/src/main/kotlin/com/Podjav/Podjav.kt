@@ -33,13 +33,38 @@ class Podjav : MainAPI() {
 
     )
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page == 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
-        val document = app.get(url).document
-        val responseList = document.select("article, div.item").mapNotNull { it.toSearchResult() }
-        val hasNext = document.select(".pagination .next").isNotEmpty()
-        return newHomePageResponse(HomePageList(request.name, responseList, isHorizontalImages = false), hasNext)
+    // ────────────────────────────────────────────────────────────────
+// MAIN PAGE + GENRE → Load SEMUA item di kategori sekaligus (tanpa batas/pagination)
+// ────────────────────────────────────────────────────────────────
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+    // Hanya proses saat page == 1 (kita load semua sekaligus)
+    if (page != 1) return newHomePageResponse(HomePageList(request.name, emptyList()), hasNext = false)
+
+    val allItems = mutableListOf<SearchResponse>()
+    var currentPage = 1
+    var hasNext = true
+
+    while (hasNext) {
+        val pageUrl = if (currentPage == 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$currentPage/"
+
+        val document = app.get(pageUrl, timeout = 30).document   // Standard document (sudah cukup ringkas & efisien)
+
+        val pageItems = document.select("article.item").mapNotNull { it.toSearchResult() }
+        allItems.addAll(pageItems)
+
+        // Cek halaman berikutnya
+        hasNext = document.selectFirst(".pagination .next") != null ||
+                  document.selectFirst("a.next.page-numbers") != null ||
+                  document.select("a[href*='page/${currentPage + 1}']").isNotEmpty()
+
+        // Jika page kosong → stop (safety)
+        if (pageItems.isEmpty()) hasNext = false
+
+        currentPage++
     }
+
+    return newHomePageResponse(HomePageList(request.name, allItems), hasNext = false)
+}
 
     private fun Element.toSearchResult(): SearchResponse? {
         val titleEl = selectFirst("h2.entry-title a, h3 a") ?: return null
@@ -159,4 +184,5 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
