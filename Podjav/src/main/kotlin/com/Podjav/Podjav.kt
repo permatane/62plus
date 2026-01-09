@@ -15,14 +15,6 @@ class Podjav : MainAPI() {
     override val hasDownloadSupport   = true
     override val supportedTypes       = setOf(TvType.NSFW)
 
-    /* =========================
-       USER AGENT (MANUAL)
-       ========================= */
-    private val BROWSER_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-
     override val mainPage = mainPageOf(
         "/movies/" to "Update Terbaru",
         "/genre/orgasm/" to "Orgasme",
@@ -91,61 +83,47 @@ override suspend fun loadLinks(
     subtitleCallback: (SubtitleFile) -> Unit,
     callback: (ExtractorLink) -> Unit
 ): Boolean {
-    var linksAdded = false
+    val doc = app.get(data).document
 
-    // 1. Prioritas tertinggi: Ambil langsung dari tag <video> di halaman
-    try {
-        val doc = app.get(data, timeout = 30).document
-        val videoSrc = doc.selectFirst("video.jw-video")?.attr("src")
-            ?: doc.selectFirst("video")?.attr("src")
+    // Coba ambil dari <video src=...>
+    val mp4Url = doc.selectFirst("video.jw-video")?.attr("src")
+        ?: doc.selectFirst("video")?.attr("src")
 
-        if (!videoSrc.isNullOrEmpty() && videoSrc.startsWith("http")) {
-            callback(
-                newExtractorLink(
-                    source = this.name,
-                    name = "Direct MP4 • 1080p (Player)",
-                    url = videoSrc,
-                    type = ExtractorLinkType.VIDEO
-                ) {
-                    this.referer = data
-                    this.quality = Qualities.P1080.value
-                    this.headers = mapOf(
-                        "Origin" to "https://podjav.tv",
-                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-                    )
-                }
-            )
-            linksAdded = true
-        }
-    } catch (e: Exception) {
-        // Jika gagal fetch halaman (Cloudflare block dll), lanjut ke fallback
+    if (!mp4Url.isNullOrEmpty()) {
+        val fullUrl = fixUrlNull(mp4Url) ?: mp4Url
+        callback(
+            newExtractorLink(
+                this.name,
+                "Direct MP4 (from HTML)",
+                fullUrl,
+                ExtractorLinkType.VIDEO
+            ) {
+                this.referer = data
+                this.quality = Qualities.P1080.value
+            }
+        )
+        return true
     }
 
-    // 2. Fallback: Generate link berdasarkan kode JAV dari URL
+    // Jika gagal, fallback ke pola URL
     val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
-    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return linksAdded
+    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
 
-    // Link standar: KODE.mp4
-    val standardUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+    val fallbackUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+
     callback(
         newExtractorLink(
-            source = this.name,
-            name = "Direct MP4 • 1080p",
-            url = standardUrl,
-            type = ExtractorLinkType.VIDEO
+            this.name,
+            "Direct MP4 (fallback pattern)",
+            fallbackUrl,
+            ExtractorLinkType.VIDEO
         ) {
             this.referer = data
             this.quality = Qualities.P1080.value
-            this.headers = mapOf(
-                "Origin" to "https://podjav.tv",
-                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            )
         }
     )
-    linksAdded = true
 
-    // Link versi Sub Indo: KODE-id.mp4 (contoh: START-440-id.mp4)
-    val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
+ val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
     if (indoUrl != standardUrl) {  // Hindari duplikat
         callback(
             newExtractorLink(
@@ -156,14 +134,13 @@ override suspend fun loadLinks(
             ) {
                 this.referer = data
                 this.quality = Qualities.P1080.value
-                this.headers = mapOf(
-                    "Origin" to "https://podjav.tv",
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                )
-            }
-        )
-    }
 
-    return linksAdded
+        }
+    )
+    return true
 }
 }
+
+
+
+
