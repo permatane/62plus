@@ -1,4 +1,4 @@
-package com.JavSek 
+package com.Javsek 
 
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.extractors.VidhideExtractor  // Asumsi earnvid mirip Vidhide (dari update CloudStream terbaru)
@@ -66,4 +66,5 @@ class Lulustream : StreamWishExtractor() {
     } catch (_: Exception) {}
 
     return linksAdded
+
 }
