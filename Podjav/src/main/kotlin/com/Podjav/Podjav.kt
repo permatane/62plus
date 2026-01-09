@@ -82,30 +82,50 @@ class Podjav : MainAPI() {
         }
     }
 
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val doc = app.get(data).document
-
-        // Direct download link (ZIP file containing the video)
-        val downloadUrl = doc.select("a").firstOrNull { it.attr("href").startsWith("https://cdn.podjav.tv/download/") }?.attr("href")
-            ?: return false
-
-        callback(
-            ExtractorLink(
-                source = name,
-                name = "$name Direct Download (ZIP)",
-                url = downloadUrl,
-                referer = mainUrl,
-                quality = Qualities.P720.value,  // Most videos appear to be 720p or higher
-                isM3u8 = false
-            )
-        )
-
-        // Indonesian subtitles are usually hardcoded in the video
+     override suspend fun loadLinks(data: String, isCasting: Boolean, subtitleCallback: (SubtitleFile) -> Unit, callback: (ExtractorLink) -> Unit): Boolean {
+        val document = app.get(data).document
+        val script=document.select("script:containsData(iframe_url)").html()
+        val IFRAME_B64_REGEX = Regex(""""iframe_url":"([^"]+)"""")
+         val iframeUrls = IFRAME_B64_REGEX.findAll(script)
+             .map { it.groupValues[1] }
+             .map { Base64.decode(it, Base64.DEFAULT).let(::String) }
+             .toList()
+         iframeUrls.forEach {
+             Log.d("Phisher",it)
+             val iframedoc=app.get(it, referer = it).document
+             val olid=iframedoc.toString().substringAfter("var OLID = '").substringBefore("'")
+             val newreq=iframedoc.toString().substringAfter("iframe").substringAfter("src=\"").substringBefore("'+OLID")
+             val reverseid= olid.edoceD()
+             val location= app.get("$newreq$reverseid", referer = it, allowRedirects = false)
+             val link=location.headers["location"].toString()
+             if (link.contains(".m3u"))
+             {
+                 callback.invoke(
+                     newExtractorLink(
+                         source = name,
+                         name = name,
+                         url = link,
+                         INFER_TYPE
+                     ) {
+                         this.referer = ""
+                         this.quality = getQualityFromName("")
+                     }
+                 )
+             }
+             else{
+                 loadExtractor(link, referer = it,subtitleCallback,callback)
+             }
+         }
         return true
+    }
+
+    fun String.edoceD(): String {
+        var x = this.length - 1
+        var edoceD = ""
+        while (x >= 0) {
+            edoceD += this[x]
+            x--
+        }
+        return edoceD
     }
 }
