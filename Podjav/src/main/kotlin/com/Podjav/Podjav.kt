@@ -59,7 +59,7 @@ class Podjav : MainAPI() {
 
         val title = document.selectFirst("meta[property=og:title]")?.text()?.trim() ?: "Untitled"
         val poster = fixUrlNull(document.selectFirst("meta[property=og:image]") ?.attr("content")
-        val description = ddocument.selectFirst("meta[property=og:description]")?.attr("content")
+        val description = document.selectFirst("meta[property=og:description]")?.attr("content")
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
@@ -113,6 +113,7 @@ class Podjav : MainAPI() {
         return edoceD
     }
 }
+
 
 
 
