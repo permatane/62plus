@@ -91,12 +91,10 @@ class Podjav : MainAPI() {
         newExtractorLink(
             source = name,
             name = "$name Direct Stream",
-            url = fullMp4Url,
-            referer = mainUrl,
-            quality = Qualities.P1080.value,  // Kebanyakan video di podjav.tv adalah 1080p atau 720p HD
-            isM3u8 = false
+            url = fullMp4Url
         )
     )
     return true
 }
 }
+
