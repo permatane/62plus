@@ -30,13 +30,9 @@ class Podjav : MainAPI() {
         "/genre/swingers/" to "Tukar Pasangan",
         "/genre/solowork/" to "Solowork",
         "/genre/cuckold/" to "Istri Menyimpang"
-
     )
 
-    // ────────────────────────────────────────────────────────────────
-// MAIN PAGE + GENRE → Load SEMUA item di kategori sekaligus (tanpa batas/pagination)
-// ────────────────────────────────────────────────────────────────
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
     // Hanya proses saat page == 1 (kita load semua sekaligus)
     if (page != 1) return newHomePageResponse(HomePageList(request.name, emptyList()), hasNext = false)
 
@@ -77,13 +73,34 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         }
     }
 
-    override suspend fun search(query: String, page: Int): SearchResponseList? {
-        val url = if (page == 1) "$mainUrl/?s=$query" else "$mainUrl/page/$page/?s=$query"
-        val document = app.get(url).document
-        val results = document.select("article, div.item").mapNotNull { it.toSearchResult() }
-        val hasNext = document.select(".pagination .next").isNotEmpty()
-        return if (results.isEmpty()) null else newSearchResponseList(results, hasNext)
+override suspend fun search(query: String, page: Int): List<SearchResponse> {
+    // Hanya proses page 1 (tidak ada pagination di hasil search podjav.tv)
+    if (page > 1) return emptyList()
+
+    val searchUrl = "$mainUrl/?s=$query"
+    val document = app.get(searchUrl, timeout = 30).document
+    val results = document.select("a[href*='/movies/']").mapNotNull { element ->
+        val title = element.text().trim()
+        if (title.isEmpty()) return@mapNotNull null
+
+        // Filter agar lebih relevan (harus mengandung query, ignore case)
+        if (!title.contains(query, ignoreCase = true)) return@mapNotNull null
+
+        val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
+
+        // Poster: jarang ada di search results, jadi null dulu (bisa di-load di detail)
+        newMovieSearchResponse(
+            name = title,
+            url = href,
+            type = TvType.NSFW
+        ) {
+            this.posterUrl = null
+        }
     }
+
+    // Jika tidak ada hasil yang match, return empty
+    return results
+}
 
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
@@ -184,5 +201,6 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
