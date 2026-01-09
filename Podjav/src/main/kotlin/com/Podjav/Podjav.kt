@@ -57,9 +57,9 @@ class Podjav : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
 
-        val title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: "Untitled"
-        val poster = fixUrlNull(document.selectFirst(".featured-image img, img.wp-post-image")?.attr("src"))
-        val description = document.selectFirst(".entry-content p")?.text()?.trim()
+        val title = document.selectFirst("meta[property=og:title]")?.text()?.trim() ?: "Untitled"
+        val poster = fixUrlNull(document.selectFirst("meta[property=og:image]") ?.attr("content")
+        val description = ddocument.selectFirst("meta[property=og:description]")?.attr("content")
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
@@ -113,6 +113,7 @@ class Podjav : MainAPI() {
         return edoceD
     }
 }
+
 
 
 
