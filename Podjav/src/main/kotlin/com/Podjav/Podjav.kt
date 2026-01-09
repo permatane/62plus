@@ -109,7 +109,7 @@ override suspend fun loadLinks(
     val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
     val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
 
-    val fallbackUrl = "https://vod.podjav.tv/$javCode/*.mp4"
+    val fallbackUrl = "https://vod.podjav.tv/$javCode/([a-zA-Z0-9-]+).mp4"
 
     callback(
         newExtractorLink(
@@ -126,6 +126,7 @@ override suspend fun loadLinks(
     return true
 }
 }
+
 
 
 
