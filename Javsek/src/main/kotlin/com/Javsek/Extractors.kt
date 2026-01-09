@@ -40,32 +40,3 @@ class Lulustream : StreamWishExtractor() {
     override var mainUrl = "https://lulustream.com"
 }
 
- override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
-    var linksAdded = false
-
-    // Multi player (?player=1 sampai 7) → otomatis coba semua server
-    val baseUrl = data.substringBefore("?")  // Hapus parameter lama jika ada
-    for (i in 1..7) {
-        val playerUrl = "$baseUrl?player=$i"
-        loadExtractor(playerUrl, data, subtitleCallback, callback)
-        linksAdded = true
-    }
-
-    // Tambahan: coba iframe atau direct dari halaman utama
-    try {
-        app.get(data).document.select("iframe[src*='http']").forEach { iframe ->
-            val embedUrl = fixUrlNull(iframe.attr("src")) ?: return@forEach
-            loadExtractor(embedUrl, data, subtitleCallback, callback)
-            linksAdded = true
-        }
-    } catch (_: Exception) {}
-
-    return linksAdded
-
-}
-
