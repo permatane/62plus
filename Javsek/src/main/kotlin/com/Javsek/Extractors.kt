@@ -34,7 +34,9 @@ open class Stbturbo : ExtractorApi() {
     }
     }
 
-
+class luluvdoo : VidhideExtractor() {
+    override var mainUrl = "https://luluvdoo.com"
+}
 
 class Turbovid : Stbturbo() {
     override var name = "Stbturbo"
