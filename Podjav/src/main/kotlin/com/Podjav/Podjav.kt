@@ -15,6 +15,14 @@ class Podjav : MainAPI() {
     override val hasDownloadSupport   = true
     override val supportedTypes       = setOf(TvType.NSFW)
 
+    /* =========================
+       USER AGENT (MANUAL)
+       ========================= */
+    private val BROWSER_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
     override val mainPage = mainPageOf(
         "/movies/" to "Update Terbaru",
         "/genre/orgasm/" to "Orgasme",
@@ -126,6 +134,7 @@ override suspend fun loadLinks(
     return true
 }
 }
+
 
 
 
