@@ -1,0 +1,59 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://javsek.net&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/permatane/62plus",
+        "fileSize": 12970,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Matanya"
+        ],
+        "tvTypes": [
+            "NSFW"
+        ],
+        "version": 3,
+        "internalName": "Javsek",
+        "description": "Javsek",
+        "url": "https://raw.githubusercontent.com/permatane/62plus/builds/Javsek.cs3",
+        "name": "Javsek"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=https://javstory1.com/&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/permatane/62plus",
+        "fileSize": 11793,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Matanya"
+        ],
+        "tvTypes": [
+            "NSFW"
+        ],
+        "version": 3,
+        "internalName": "Javstory",
+        "description": "Jav Story",
+        "url": "https://raw.githubusercontent.com/permatane/62plus/builds/Javstory.cs3",
+        "name": "Javstory"
+    },
+    {
+        "iconUrl": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://podjav.tv&size=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/permatane/62plus",
+        "fileSize": 14233,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Matanya"
+        ],
+        "tvTypes": [
+            "NFSW"
+        ],
+        "version": 14,
+        "internalName": "Podjav",
+        "description": "PodJav",
+        "url": "https://raw.githubusercontent.com/permatane/62plus/builds/Podjav.cs3",
+        "name": "Podjav"
+    }
+]

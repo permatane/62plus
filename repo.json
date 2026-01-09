@@ -1,0 +1,12 @@
+{
+    "name": "Matanya 18+ Repo",
+    "iconUrl": "https://raw.githubusercontent.com/permatane/62plus/main/matane.png",
+    "description": "Repo Anunya Anu ",
+    "manifestVersion": 1,
+    "pluginLists": [
+      "https://raw.githubusercontent.com/permatane/62plus/builds/plugins.json"
+    ]
+}
+
+
+
