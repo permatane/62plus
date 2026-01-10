@@ -94,10 +94,16 @@ class Javstory : MainAPI() {
             if (src.isNotEmpty() && src.contains("get_video")) {
                 callback(
                     newExtractorLink(
-                        name = "$name Direct StreamTape",
-                        url = videoUrl,
-                        type = ExtractorLinkType.VIDEO
+                        link.name,
+                        link.url,
+                        link.type
                     )
+                    {
+                        this.referer = link.referer
+                        this.quality = quality ?: Qualities.Unknown.value
+                        this.headers = link.headers
+                        this.extractorData = link.extractorData
+                    }
                 )
             }
         }
