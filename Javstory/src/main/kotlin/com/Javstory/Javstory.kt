@@ -33,9 +33,9 @@ class Javstory : MainAPI() {
             if (featuredItems.isNotEmpty()) {
                 homePageLists.add(
                     HomePageList(
-                        "Rekomendasi Utama", // Judul baris di aplikasi
+                        "Rekomendasi", 
                         featuredItems,
-                        isHorizontalImages = true // Biasanya slider berbentuk landscape/horizontal
+                        isHorizontalImages = true 
                     )
                 )
             }
