@@ -22,30 +22,30 @@ class Javstory : MainAPI() {
         "/category/engsub/" to "Sub English"
     )
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Tambahkan header referer di setiap request halaman
+        val document = app.get(
+            if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/",
+            referer = mainUrl
+        ).document
         
-        // Menggunakan app.get dengan timeout dan headers yang lebih lengkap
-        val response = app.get(url, timeout = 15).document
-        
-        // Selector 'article' biasanya digunakan di tema WordPress JavStory
-        // Jika masih kosong, coba ganti ke ".post-item" atau "div.bs"
-        val items = response.select("article, .post-item, .bs").mapNotNull {
-            it.toSearchResult()
-        }
-        
+        val items = document.select("article, .post-item").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, items, hasNext = true)
     }
+}
 
-    private fun Element.toSearchResult(): SearchResponse? {
-        // Mencari link dan judul dengan selector yang lebih luas
+   private fun Element.toSearchResult(): SearchResponse? {
         val linkElement = this.selectFirst(".entry-title a, a.tip") ?: return null
         val title = linkElement.text().trim()
         val href = fixUrl(linkElement.attr("href"))
         
-        // Mencari gambar (poster)
-        val posterUrl = fixUrlNull(this.selectFirst("img")?.attr("src") 
-            ?: this.selectFirst("img")?.attr("data-src"))
+        // Perbaikan: Mencari di berbagai atribut lazy-load yang umum
+        val imgElement = this.selectFirst("img")
+        val posterUrl = fixUrlNull(
+            imgElement?.attr("data-src") ?:       // Cek data-src
+            imgElement?.attr("data-lazy-src") ?:  // Cek data-lazy-src
+            imgElement?.attr("src")               // Cek src biasa sebagai cadangan
+        )
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
             this.posterUrl = posterUrl
@@ -59,13 +59,13 @@ class Javstory : MainAPI() {
         }
     }
 
-    override suspend fun load(url: String): LoadResponse? {
+    override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
-        
-        // Mencari data detail
-        val title = document.selectFirst("h1.entry-title, .entry-title")?.text() ?: return null
-        val poster = fixUrlNull(document.selectFirst(".content-thumb img, .thumb img")?.attr("src"))
-        val description = document.selectFirst(".entry-content p, .description")?.text()
+
+        val title = document.selectFirst("meta[property=og:title]")?.attr("content")?.trim().toString()
+        val poster = fixUrlNull(document.selectFirst("[property='og:image']")?.attr("content"))
+        val description = document.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
+    
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
