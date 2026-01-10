@@ -169,12 +169,14 @@ override suspend fun loadLinks(
                 this.quality = Qualities.P1080.value
                 this.headers = mapOf(
                         "Origin" to "https://podjav.tv",
-                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" 
+                )
             }
         )
         added = true
     }
 
     return added
+ }
 }
 
