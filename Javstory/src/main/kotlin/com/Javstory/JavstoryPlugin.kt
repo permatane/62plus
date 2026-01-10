@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.extractors.StreamTape
 class JavstoryPlugin: Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Javstory())
+        registerExtractorAPI(StreamTape())
     
     }
 }
