@@ -8,7 +8,7 @@ import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.network.WebViewResolver
 import org.jsoup.nodes.Element
 
-class JavStory : MainAPI() {
+class Javstory : MainAPI() {
     override var name = "JavStory"
     override var mainUrl = "https://javstory1.com"
     override val supportedTypes = setOf(TvType.NSFW)
