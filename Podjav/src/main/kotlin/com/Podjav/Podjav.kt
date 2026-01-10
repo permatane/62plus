@@ -147,41 +147,39 @@ override suspend fun loadLinks(
     subtitleCallback: (SubtitleFile) -> Unit,
     callback: (ExtractorLink) -> Unit
 ): Boolean {
-    // Langkah 1: Ambil kode JAV dari URL (satu regex utama)
-    val javCode = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
-        ?.groupValues?.get(1)?.uppercase() ?: return false
+    // Ekstrak kode JAV dari URL halaman (regex utama yang stabil)
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
+    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
 
-    val fileNames = listOf(
-        "$javCode.mp4",           // 1. Standar paling sering
-        "$javCode-id.mp4",        // 2. Versi subtitle Indo
-        "$javCode%20.mp4",        // 3. Trailing space (%20)
-        "$javCode .mp4",          // 4. Spasi literal (jarang tapi pernah ada)
-        "${javCode.dropLast(3)}${javCode.takeLast(3).toIntOrNull()?.plus(1) ?: 0}.mp4"  // 5. Offset +1 (contoh 062 → 063)
-    )
+    // Daftar base domain & pola nama file (cover semua yang pernah kamu share + pola baru)
+    val domains = listOf("vod.podjav.tv", "cdn.podjav.tv/download")
+    val suffixes = listOf("", "-id", "%20", " ", "-sub")  // variasi umum + -id untuk pola baru
 
-    var added = false
-    fileNames.distinct().forEach { file ->
-        val url = "https://vod.podjav.tv/$javCode/$file"
-        callback(
-            newExtractorLink(
-                source = name,
-                name = file.removeSuffix(".mp4"),
-                url = url,
-                type = ExtractorLinkType.VIDEO
-            ) {
-                this.referer = data
-                this.quality = Qualities.P1080.value
-                this.headers = mapOf(
+    var linksAdded = false
+
+    for (domain in domains) {
+        for (suffix in suffixes) {
+            val fileName = if (suffix.isEmpty()) "$javCode.mp4" else "$javCode$suffix.mp4"
+            val videoUrl = "https://$domain/$javCode/$fileName"
+
+            callback(
+                newExtractorLink(
+                    source = name,
+                    name = "$domain • $fileName".removeSuffix(".mp4"),
+                    url = videoUrl,
+                    type = ExtractorLinkType.VIDEO
+                ) {
+                    this.referer = data
+                    this.quality = Qualities.P1080.value
+                    this.headers = mapOf(
                         "Origin" to "https://podjav.tv",
-                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" 
-                )
-            }
-        )
-        added = true
+                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    )
+                }
+            )
+            linksAdded = true
+        }
     }
 
-    return added
- }
+    return linksAdded
 }
-
-
