@@ -14,6 +14,10 @@ class Podjav : MainAPI() {
     override var lang                 = "id"
     override val hasDownloadSupport   = true
     override val supportedTypes       = setOf(TvType.NSFW)
+    
+    private val BROWSER_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override val mainPage = mainPageOf(
         "/movies/" to "Update Terbaru",
@@ -31,7 +35,7 @@ class Podjav : MainAPI() {
         "/genre/solowork/" to "Solowork",
         "/genre/cuckold/" to "Istri Menyimpang"
     )
-
+  
 override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
     // Bangun URL dengan pagination benar (/page/N/)
     val url = if (page == 1) {
@@ -144,7 +148,7 @@ override suspend fun loadLinks(
     callback: (ExtractorLink) -> Unit
 ): Boolean {
     // Langkah 1: Ambil kode JAV dari URL (satu regex utama)
-    val javCode = Regex("/movies/([A-Z0-9-]+?)(?:-sub-indo-|/|$)").find(data)
+    val javCode = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
         ?.groupValues?.get(1)?.uppercase() ?: return false
 
     val fileNames = listOf(
@@ -179,4 +183,5 @@ override suspend fun loadLinks(
     return added
  }
 }
+
 
