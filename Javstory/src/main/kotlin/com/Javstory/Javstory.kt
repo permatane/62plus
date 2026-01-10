@@ -1,4 +1,4 @@
-package com.JavStory
+package com.Javstory
 
 import android.util.Log
 import com.lagradost.cloudstream3.MainAPI
@@ -76,26 +76,24 @@ class JavStory : MainAPI() {
 
         val embedUrls = mutableSetOf<String>()
 
-        // 1. Direct iframes yang sudah ada di HTML
+        // 1. Direct iframes
         doc.select("iframe[src*=streamtape], iframe[src*=sbembed], iframe[src*=streamsb], iframe.player-iframe").forEach {
             var src = fixUrl(it.attr("src"))
             if (src.contains("/e/") || src.contains(".html")) {
                 src = src.trimEnd('/').removeSuffix(".html")
                 embedUrls.add(src)
-                // Tambahkan varian .html untuk SBEmbed
                 if (src.contains("sbembed") || src.contains("streamsb")) {
                     embedUrls.add("$src.html")
                 }
             }
         }
 
-        // 2. Direct <video> tag (StreamTape get_video)
+        // 2. Direct <video> tag (StreamTape get_video) - menggunakan newExtractorLink untuk menghindari deprecation
         doc.select("video source, video#mainvideo").forEach {
             val src = it.attr("src")
             if (src.isNotEmpty() && src.contains("get_video")) {
-                callback.invoke(
-                    ExtractorLink(
-                        source = name,
+                callback(
+                    newExtractorLink(
                         name = "$name Direct StreamTape",
                         url = src,
                         referer = mainUrl,
@@ -136,7 +134,7 @@ class JavStory : MainAPI() {
             }
         }
 
-        // 5. General regex untuk /e/code patterns
+        // 5. General /e/code patterns
         val generalRegex = Regex("""(https?://[^'"\s>]{10,200}/e/[A-Za-z0-9]{6,20}[^'"\s>]*?)""")
         generalRegex.findAll(text).forEach { match ->
             var url = match.value.trimEnd('/').removeSuffix(".html")
@@ -146,12 +144,13 @@ class JavStory : MainAPI() {
             }
         }
 
-        // Load semua embed URL menggunakan loadExtractor (library CloudStream built-in)
+        // Load semua embed URL
         embedUrls.forEach { url ->
             Log.d("JavStory1", "Loading extractor: $url")
             loadExtractor(url, mainUrl, subtitleCallback, callback)
         }
 
-        return embedUrls.isNotEmpty()
+        return embedUrls.isNotEmpty() || doc.select("video source, video#mainvideo").isNotEmpty()
     }
 }
+
