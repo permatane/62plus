@@ -22,38 +22,42 @@ class Javstory : MainAPI() {
         "/category/engsub/" to "Sub English",
     )
 
- override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
         val response = app.get(url, timeout = 15).document
+        
         val homePageLists = mutableListOf<HomePageList>()
+
+        // 1. Logika untuk Slider/Rekomendasi Utama (Paling Atas)
         if (request.data == "/" && page <= 1) {
-            val featuredItems = response.select(".featured-item, .slider-item, .top-recommendation").mapNotNull {
+            // Kita coba ambil dari selector slider yang biasanya ada di web JavStory
+            val featuredItems = response.select(".featured-item, .slider-item, .hero-item").mapNotNull {
                 it.toSearchResult()
             }
+            
             if (featuredItems.isNotEmpty()) {
                 homePageLists.add(
                     HomePageList(
-                        "Rekomendasi", 
+                        "Rekomendasi Utama", 
                         featuredItems,
-                        isHorizontalImages = true 
+                        isHorizontalImages = true // Layout horizontal/landscape
                     )
                 )
             }
         }
 
-            val mainItems = response.select("article, .post-item, .bs").mapNotNull {
+        // 2. Logika untuk daftar film standar
+        val mainItems = response.select("article, .post-item, .bs").mapNotNull {
             it.toSearchResult()
         }
         
         homePageLists.add(
             HomePageList(
-                request.name, // Nama kategori (misal: Terbaru, Jav Sub Indo)
+                request.name, 
                 mainItems,
-                isHorizontalImages = false
             )
         )
-
-        return HomePageResponse(homePageLists, hasNext = true)
+        return newHomePageResponse(homePageLists, hasNext = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
